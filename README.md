@@ -114,6 +114,8 @@ php artisan serve
 npm run dev
 ```
 
+---
+
 ## Cara Penggunaan & Akses
 Buka browser dan akses URL berikut:
 
@@ -135,6 +137,8 @@ C. Display TV
 
 * PENTING: Klik tombol "MULAI SISTEM LAYAR" di tengah layar agar suara browser aktif.
 
+---
+
 ## Konfigurasi Printer Thermal
 Agar struk tercetak rapi (tidak pakai kertas A4):
 
@@ -144,11 +148,15 @@ Agar struk tercetak rapi (tidak pakai kertas A4):
 4. Margins: None.
 5. Headers and Footers: Uncheck (Hapus Centang).
 
+---
+
 ## Troubleshooting (Masalah Umum)
 * **Error "Vite manifest not found"**: Terminal npm run dev belum dijalankan.
 * **Error Database**: Pastikan nama database di phpMyAdmin adalah db_antrian.
 * **Tampilan Hancur/CSS Hilang**: Matikan npm run dev (Ctrl+C), lalu jalankan lagi. Hard refresh browser (Ctrl+F5).
 * **Suara Display Tidak Keluar**: Pastikan sudah klik tombol "Mulai Sistem Layar" di halaman Display.
+
+---
 
 ## Author
 1. Irfan Abdurrahman
