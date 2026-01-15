@@ -1,63 +1,62 @@
-<<<<<<< HEAD
-# pkl_antreanWeb
-=======
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Sistem Informasi Manajemen Antrian (Queue Management System)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+![Laravel](https://img.shields.io/badge/Laravel-11.x-red?style=for-the-badge&logo=laravel)
+![Vue.js](https://img.shields.io/badge/Vue.js-3.x-green?style=for-the-badge&logo=vue.js)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.x-blue?style=for-the-badge&logo=tailwind-css)
+![MySQL](https://img.shields.io/badge/Database-MySQL-orange?style=for-the-badge&logo=mysql)
 
-## About Laravel
+Sistem Manajemen Antrian Berbasis Web yang dikembangkan untuk mengotomatisasi proses antrian manual pada instansi pelayanan publik. Sistem ini dirancang untuk menggantikan tiket manual dengan tiket digital (thermal print), mendukung pemanggilan suara otomatis (*Text-to-Speech*), dan menyediakan tampilan layar ruang tunggu yang informatif.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Proyek ini dikembangkan sebagai bagian dari **Praktek Kerja Lapangan (PKL)** Mahasiswa Fakultas Ilmu Komputer, Universitas Brawijaya.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🌟 Fitur Unggulan
 
-## Learning Laravel
+### 1. Modul Kiosk (Anjungan Peserta)
+- **Input Data Peserta:** Mewajibkan input Nama dan NIK/No. HP sebelum mengambil tiket.
+- **UI Ramah Lansia:** Tombol besar, font jelas, dan input angka otomatis (*numeric keypad*) untuk kemudahan akses rentang usia 20-60+ tahun.
+- **Auto-Print:** Integrasi langsung dengan printer thermal (58mm/80mm) menggunakan CSS Print khusus.
+- **Cetak Struk:** Struk antrian berisi Nomor, Nama, NIK, dan Waktu Kedatangan.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 2. Modul Petugas (Staff Dashboard)
+- **Multi-Counter:** Mendukung login untuk berbagai loket (CS, Teller, Pengaduan, dll).
+- **Kontrol Penuh:** Fitur "Panggil Berikutnya" (*Call Next*), "Panggil Ulang" (*Recall*), dan "Selesai" (*Complete*).
+- **Real-time Status:** Jumlah sisa antrian diperbarui secara otomatis.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 3. Modul Display (Layar Ruang Tunggu)
+- **Voice Announcement:** Pemanggilan nomor antrian menggunakan suara bahasa Indonesia ("Nomor Antrian A-001, Silakan ke Loket 1").
+- **Split Screen Layout:** Menampilkan daftar antrian di sisi kiri dan Video Profil/Iklan di sisi kanan.
+- **Running Text:** Baris informasi berjalan di bagian bawah layar.
+- **Auto-Refresh:** Data antrian diperbarui otomatis tanpa *refresh* halaman (Polling mechanism).
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Teknologi yang Digunakan
 
-### Premium Partners
+- **Backend:** Laravel 11 (PHP 8.2+)
+- **Frontend:** Vue.js 3 + Inertia.js
+- **Styling:** Tailwind CSS
+- **Database:** MySQL / MariaDB
+- **Tools:** Vite (Build tool), Axios (HTTP Client)
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+---
 
-## Contributing
+## Prasyarat Instalasi (Prerequisites)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Sebelum menjalankan proyek, pastikan komputer Anda telah terinstal:
+1.  **PHP** >= 8.2
+2.  **Composer**
+3.  **Node.js** >= 20 & **NPM**
+4.  **MySQL Server** (XAMPP / Laragon)
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Panduan Instalasi (Step-by-Step)
 
-## Security Vulnerabilities
+Ikuti langkah ini untuk menjalankan proyek di komputer lokal (Localhost):
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
->>>>>>> d8519fb (initial commit project pkl)
+### 1. Clone Repository
+```bash
+git clone [https://github.com/username-anda/nama-repo-antrian.git](https://github.com/username-anda/nama-repo-antrian.git)
+cd nama-repo-antrian
