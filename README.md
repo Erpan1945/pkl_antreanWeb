@@ -56,7 +56,102 @@ Sebelum menjalankan proyek, pastikan komputer Anda telah terinstal:
 
 Ikuti langkah ini untuk menjalankan proyek di komputer lokal (Localhost):
 
-### 1. Clone Repository
+### 1. Persiapan Software (Prerequisites)
+Pastikan di komputer kalian sudah terinstall:
+* **XAMPP / Laragon** (Pastikan MySQL berjalan).
+* **PHP** (Minimal versi 8.2). Cek: `php -v`
+* **Composer**. Cek: `composer -v`
+* **Node.js** (Minimal versi 18/20). Cek: `node -v`
+
+### 2. Clone Repository
 ```bash
-git clone [https://github.com/username-anda/nama-repo-antrian.git](https://github.com/username-anda/nama-repo-antrian.git)
-cd nama-repo-antrian
+git clone [https://github.com/Erpan1945/pkl_antreanWeb.git]
+cd nama-repo
+```
+
+### 3. Setup Backend (Laravel)
+```bash
+composer install
+```
+Konfigurasi .env:
+1. Copy file .env.example lalu ubah namanya menjadi .env.
+2. Buka file .env di VS Code, ubah bagian database menjadi seperti ini:
+
+```
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=db_antrian
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Generate Key:
+```bash
+php artisan key:generate
+```
+
+### 4. Setup Frontend (Vue.js)
+Install library JavaScript. PENTING: Gunakan perintah ini agar tidak error versi Vite.
+```bash
+npm install --legacy-peer-deps
+```
+
+### 5. Setup Database
+Jalankan migrasi data untuk membuat tabel dan data dummy:
+```bash
+php artisan migrate:fresh --seed
+```
+
+### 6. Run Web
+* Terminal 1 (Backend)
+```bash
+php artisan serve
+```
+
+* Terminal 2 (Frontend)
+```bash
+npm run dev
+```
+
+## Cara Penggunaan & Akses
+Buka browser dan akses URL berikut:
+
+1. Kiosk (Pengambilan Tiket)
+👉 http://localhost:8000/kiosk
+
+* Pilih Layanan.
+* Isi Nama & No HP pada popup.
+* Klik "Cetak Tiket".
+
+B. Dashboard Petugas
+👉 http://localhost:8000/staff
+
+* Pilih Loket (Misal: Loket 1).
+* Klik "Panggil Berikutnya" atau "Panggil Ulang" (ikon lonceng).
+
+C. Display TV
+👉 http://localhost:8000/display
+
+* PENTING: Klik tombol "MULAI SISTEM LAYAR" di tengah layar agar suara browser aktif.
+
+## Konfigurasi Printer Thermal
+Agar struk tercetak rapi (tidak pakai kertas A4):
+
+1. Saat window Print muncul (Ctrl+P).
+2. Pilih Printer Thermal.
+3. Paper Size: 80mm / Custom.
+4. Margins: None.
+5. Headers and Footers: Uncheck (Hapus Centang).
+
+## Troubleshooting (Masalah Umum)
+* **Error "Vite manifest not found"**: Terminal npm run dev belum dijalankan.
+* **Error Database**: Pastikan nama database di phpMyAdmin adalah db_antrian.
+* **Tampilan Hancur/CSS Hilang**: Matikan npm run dev (Ctrl+C), lalu jalankan lagi. Hard refresh browser (Ctrl+F5).
+* **Suara Display Tidak Keluar**: Pastikan sudah klik tombol "Mulai Sistem Layar" di halaman Display.
+
+## Author
+1. Irfan Abdurrahman
+2. Putu Adelia Devani
+3. Feni Nur Aisyah
+
