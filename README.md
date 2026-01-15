@@ -14,7 +14,7 @@ Proyek ini dikembangkan sebagai bagian dari **Praktek Kerja Lapangan (PKL)** Mah
 ## 🌟 Fitur Unggulan
 
 ### 1. Modul Kiosk (Anjungan Peserta)
-- **Input Data Peserta:** Mewajibkan input Nama dan NIK/No. HP sebelum mengambil tiket.
+- **Input Data Peserta:** Mewajibkan input Nama dan NRP sebelum mengambil tiket.
 - **UI Ramah Lansia:** Tombol besar, font jelas, dan input angka otomatis (*numeric keypad*) untuk kemudahan akses rentang usia 20-60+ tahun.
 - **Auto-Print:** Integrasi langsung dengan printer thermal (58mm/80mm) menggunakan CSS Print khusus.
 - **Cetak Struk:** Struk antrian berisi Nomor, Nama, NRP, dan Waktu Kedatangan.
