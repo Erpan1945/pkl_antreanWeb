@@ -3,7 +3,7 @@
 ![Laravel](https://img.shields.io/badge/Laravel-11.x-red?style=for-the-badge&logo=laravel)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3.x-green?style=for-the-badge&logo=vue.js)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.x-blue?style=for-the-badge&logo=tailwind-css)
-![MySQL](https://img.shields.io/badge/Database-MySQL-orange?style=for-the-badge&logo=mysql)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql)
 
 Sistem Manajemen Antrian Berbasis Web yang dikembangkan untuk mengotomatisasi proses antrian manual pada instansi pelayanan publik. Sistem ini dirancang untuk menggantikan tiket manual dengan tiket digital (thermal print), mendukung pemanggilan suara otomatis (*Text-to-Speech*), dan menyediakan tampilan layar ruang tunggu yang informatif.
 
@@ -37,7 +37,7 @@ Proyek ini dikembangkan sebagai bagian dari **Praktek Kerja Lapangan (PKL)** Mah
 - **Backend:** Laravel 11 (PHP 8.2+)
 - **Frontend:** Vue.js 3 + Inertia.js
 - **Styling:** Tailwind CSS
-- **Database:** MySQL / MariaDB
+- **Database:** PostgreSQL 18
 - **Tools:** Vite (Build tool), Axios (HTTP Client)
 
 ---
@@ -48,7 +48,7 @@ Sebelum menjalankan proyek, pastikan komputer Anda telah terinstal:
 1.  **PHP** >= 8.2
 2.  **Composer**
 3.  **Node.js** >= 20 & **NPM**
-4.  **MySQL Server** (XAMPP / Laragon)
+4.  **PostgreSQL Server** (dan pgAdmin 4 untuk manajemen DB)
 
 ---
 
