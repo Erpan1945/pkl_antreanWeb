@@ -8,64 +8,95 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
+use Revolution\Google\Sheets\Facades\Sheets;
 
 class TicketController extends Controller
 {
-    // 1. Menampilkan Halaman Kiosk (Layar Peserta)
     public function index()
     {
         return Inertia::render('Kiosk/Index', [
-            'services' => Service::all() // Kirim data layanan ke Vue (untuk jadi tombol)
+            // Kirim data layanan (opsional, untuk debug)
+            'services' => Service::all() 
         ]);
     }
 
-    // 2. Proses Mencetak Tiket (Saat tombol diklik)
     public function store(Request $request)
     {
-        // 1. Validasi Input
+        // 1. VALIDASI (Hanya Data Diri, TANPA service_id)
         $request->validate([
-            'service_id' => 'required|exists:services,id',
-            'guest_name' => 'required|string|max:100',
-            'identity_number' => 'required|numeric', // Pastikan Angka (supaya NIK/HP valid)
+            'guest_name'      => 'required|string|max:100',
+            'identity_number' => 'required|string|max:20',
+            'phone_number'    => 'required|string|max:15',
+            'purpose'         => 'nullable|string|max:255',
         ]);
 
-        // Gunakan Transaction agar nomor tidak balapan/ganda jika diklik bersamaan
-        $ticket = DB::transaction(function () use ($request) {
-            $service = Service::find($request->service_id);
+        try {
+            // --- LOGIKA OTOMATIS PILIH LAYANAN ---
+            // Ambil layanan pertama yang ada di database
+            $service = Service::first();
+
+            // CEK JIKA DATABASE KOSONG (PENTING!)
+            if (!$service) {
+                throw new \Exception("ERROR: Data Layanan KOSONG. Jalankan 'php artisan db:seed' dulu!");
+            }
             
-            // Cek antrian terakhir HARI INI untuk layanan TERSEBUT
-            $today = Carbon::today();
-            $lastQueue = Queue::where('service_id', $service->id)
-                ->whereDate('created_at', $today)
-                ->orderBy('number', 'desc')
-                ->lockForUpdate() // Kunci database sebentar
-                ->first();
+            $ticket = DB::transaction(function () use ($request, $service) {
+                
+                // Cek antrian terakhir hari ini
+                $today = Carbon::today();
+                $lastQueue = Queue::where('service_id', $service->id)
+                    ->whereDate('created_at', $today)
+                    ->orderBy('number', 'desc')
+                    ->lockForUpdate()
+                    ->first();
 
-            // Tentukan nomor baru (Kalau belum ada mulai dari 1, kalau ada tambah 1)
-            $newNumber = $lastQueue ? $lastQueue->number + 1 : 1;
+                // Buat nomor antrian baru
+                $newNumber = $lastQueue ? $lastQueue->number + 1 : 1;
+                $ticketCode = $service->code . '-' . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
 
-            // Format Kode Tiket: A-001
-            // str_pad(1, 3, '0', STR_PAD_LEFT) hasilnya "001"
-            $ticketCode = $service->code . '-' . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
+                // Simpan ke Database
+                return Queue::create([
+                    'service_id'      => $service->id, // ID Otomatis
+                    'counter_id'      => null,
+                    'guest_name'      => $request->guest_name,
+                    'identity_number' => $request->identity_number,
+                    'phone_number'    => $request->phone_number,
+                    'purpose'         => $request->purpose,
+                    'number'          => $newNumber,
+                    'ticket_code'     => $ticketCode,
+                    'status'          => 'waiting'
+                ]);
+            });
 
-            // Simpan ke Database
-            return Queue::create([
-                'service_id' => $service->id,
-                'counter_id' => null,
-                'guest_name' => $request->guest_name,        // Simpan Nama Tamu
-                'identity_number' => $request->identity_number, // Simpan NRP
-                'number' => $newNumber,
-                'ticket_code' => $ticketCode,
-                'status' => 'waiting'
+            // Kirim ke Google Sheets
+            try {
+                Sheets::spreadsheet(config('google.spreadsheet_id'))
+                    ->sheet('Sheet1')
+                    ->append([
+                        [
+                            $ticket->ticket_code,
+                            $ticket->guest_name,
+                            $ticket->identity_number,
+                            $ticket->phone_number,
+                            $ticket->purpose,
+                            $ticket->created_at->format('Y-m-d H:i:s')
+                        ]
+                    ]);
+            } catch (\Exception $e) {
+                Log::error('Google Sheets Error: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'message' => 'Tiket berhasil dibuat',
+                'ticket' => $ticket,
+                'service_name' => $service->name,
+                'date' => $ticket->created_at->format('d/m/Y H:i')
             ]);
-        });
 
-        // Kembalikan data tiket ke Frontend (Vue) untuk diprint
-        return response()->json([
-            'message' => 'Tiket berhasil dibuat',
-            'ticket' => $ticket,
-            'service_name' => $ticket->service->name,
-            'date' => $ticket->created_at->format('d/m/Y H:i')
-        ]);
+        } catch (\Exception $e) {
+            // Tangkap Error Spesifik (seperti Database Kosong)
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
     }
 }

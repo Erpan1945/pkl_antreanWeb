@@ -4,14 +4,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class Queue extends Model
 {
-    protected $fillable = [
-        'service_id', 
-        'counter_id', 
-        'number', 
-        'ticket_code', 
-        'status',
-        'guest_name',       // Nama
-        'identity_number',  // NRP
+        protected $fillable = [
+        'service_id',
+        'counter_id',
+        'guest_name',       // UBAH INI
+        'identity_number',  // UBAH INI
+        'phone_number',
+        'purpose',
+        'number',
+        'ticket_code',
+        'status'
     ];
 
     // Antrian milik satu layanan

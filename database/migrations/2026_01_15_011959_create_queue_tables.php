@@ -8,32 +8,34 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Tabel Layanan (Service) - Contoh: CS, Teller
+        // 1. Tabel Layanan
         Schema::create('services', function (Blueprint $table) {
             $table->id();
-            $table->string('name');      // Nama Layanan
-            $table->string('code', 5);   // Kode Cetak (A, B, C)
+            $table->string('name');
+            $table->string('code', 5);
             $table->timestamps();
         });
 
-        // 2. Tabel Loket (Counter) - Contoh: Loket 1, Loket 2
+        // 2. Tabel Loket
         Schema::create('counters', function (Blueprint $table) {
             $table->id();
-            $table->string('name');      // Nama Loket
-            $table->boolean('is_active')->default(true); // Status Buka/Tutup
+            $table->string('name');
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
 
-        // 3. Tabel Antrian (Queues) - Transaksi Utama
+        // 3. Tabel Antrian (DENGAN NAMA KOLOM BARU)
         Schema::create('queues', function (Blueprint $table) {
             $table->id();
             $table->foreignId('service_id')->constrained()->onDelete('cascade');
             $table->foreignId('counter_id')->nullable()->constrained()->onDelete('set null');
             
-            // --- UBAH DARI STUDENT JADI GUEST/UMUM ---
-            $table->string('guest_name');        // Nama Pengunjung
-            $table->string('identity_number');   // NRP
-            // ------------------------------------------
+            // --- KOLOM BARU ---
+            $table->string('guest_name');      // Dulu: student_name
+            $table->string('identity_number'); // Dulu: student_nrp
+            $table->string('phone_number')->nullable();
+            $table->string('purpose')->nullable();
+            // ------------------
 
             $table->integer('number');
             $table->string('ticket_code');
