@@ -58,10 +58,16 @@ Ikuti langkah ini untuk menjalankan proyek di komputer lokal (Localhost):
 
 ### 1. Persiapan Software (Prerequisites)
 Pastikan di komputer kalian sudah terinstall:
-* **XAMPP / Laragon** (Pastikan MySQL berjalan).
+* **Laragon**.
 * **PHP** (Minimal versi 8.2). Cek: `php -v`
 * **Composer**. Cek: `composer -v`
 * **Node.js** (Minimal versi 18/20). Cek: `node -v`
+* Pastikan **PostgreSQL** sudah terinstall dan berjalan.
+* Pastikan driver PHP untuk Postgres sudah aktif. Cek `php.ini` dan hapus titik koma (;) pada baris:
+  ```ini
+  extension=pgsql
+  extension=pdo_pgsql
+  ```
 
 ### 2. Clone Repository
 ```bash
@@ -78,12 +84,14 @@ Konfigurasi .env:
 2. Buka file .env di VS Code, ubah bagian database menjadi seperti ini:
 
 ```
-DB_CONNECTION=mysql
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=5432
 DB_DATABASE=db_antrian
-DB_USERNAME=root
-DB_PASSWORD=
+DB_USERNAME=postgres
+DB_PASSWORD=password_postgres_anda
+
+SESSION_DRIVER=file
 ```
 
 Generate Key:
