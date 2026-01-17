@@ -141,7 +141,7 @@ const submitTicket = async () => {
                     :disabled="printing"
                     class="w-full py-5 bg-blue-700 text-white text-2xl font-bold rounded-2xl hover:bg-blue-800 shadow-xl transition transform active:scale-95 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                    <span v-if="!printing">🖨️ CETAK TIKET</span>
+                    <span v-if="!printing">CETAK TIKET</span>
                     <span v-else>Sedang Memproses...</span>
                 </button>
             </div>
@@ -155,7 +155,7 @@ const submitTicket = async () => {
 
         <div v-if="ticketData" class="print-only hidden">
             <div class="ticket-container">
-                <h2 class="instansi">FILKOM UB</h2>
+                <h2 class="instansi">PT ASABRI KC MALANG</h2>
                 <p class="date">{{ ticketData.date }}</p>
                 <hr class="dashed" />
                 

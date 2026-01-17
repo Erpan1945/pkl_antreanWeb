@@ -72,8 +72,28 @@ class TicketController extends Controller
             $googleSheetsError = null;
             // Kirim ke Google Sheets
             try {
-                Sheets::spreadsheet(config('google.spreadsheet_id'))
-                    ->sheet('Sheet1')
+                // Nama sheet berdasarkan Bulan & Tahun (Format: Januari 2026)
+                // Pastikan locale 'id' untuk Bahasa Indonesia
+                $sheetName = Carbon::now()->locale('id')->isoFormat('MMMM Y');
+                
+                $sheets = Sheets::spreadsheet(config('google.spreadsheet_id'));
+                
+                // Cek apakah sheet sudah ada
+                $sheetList = $sheets->sheetList();
+                $sheetExists = in_array($sheetName, $sheetList);
+
+                // Jika belum ada, buat sheet baru dan isi header
+                if (!$sheetExists) {
+                    $sheets->addSheet($sheetName);
+                    
+                    // Tunggu sebentar (opsional) atau langsung append header
+                    $sheets->sheet($sheetName)->append([
+                        ['Kode Tiket', 'Nama Tamu', 'NRP/NIP', 'No. HP', 'Keperluan', 'Waktu Dibuat']
+                    ]);
+                }
+
+                // Append data ke sheet yang sesuai
+                $sheets->sheet($sheetName)
                     ->append([
                         [
                             $ticket->ticket_code,
@@ -81,7 +101,7 @@ class TicketController extends Controller
                             $ticket->identity_number,
                             $ticket->phone_number,
                             $ticket->purpose,
-                            $ticket->created_at->format('Y-m-d H:i:s')
+                            $ticket->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s')
                         ]
                     ]);
             } catch (\Exception $e) {
@@ -93,7 +113,7 @@ class TicketController extends Controller
                 'message' => 'Tiket berhasil dibuat',
                 'ticket' => $ticket,
                 'service_name' => $service->name,
-                'date' => $ticket->created_at->format('d/m/Y H:i'),
+                'date' => $ticket->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s'),
                 'google_sheets_error' => $googleSheetsError
             ]);
 
