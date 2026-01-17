@@ -14,8 +14,10 @@ return [
 
         /*
          * Path to service account json file.
+         *
+         * Ex: storage_path('app/google-service-account.json')
          */
-        'file' => env('GOOGLE_SERVICE_ACCOUNT_JSON_LOCATION', ''),
+        'file' => storage_path(env('GOOGLE_SERVICE_ACCOUNT_JSON_RELATIVE_PATH', 'app/google-service-account.json')),
     ],
 
     /*

@@ -69,6 +69,7 @@ class TicketController extends Controller
                 ]);
             });
 
+            $googleSheetsError = null;
             // Kirim ke Google Sheets
             try {
                 Sheets::spreadsheet(config('google.spreadsheet_id'))
@@ -85,13 +86,15 @@ class TicketController extends Controller
                     ]);
             } catch (\Exception $e) {
                 Log::error('Google Sheets Error: ' . $e->getMessage());
+                $googleSheetsError = $e->getMessage();
             }
 
             return response()->json([
                 'message' => 'Tiket berhasil dibuat',
                 'ticket' => $ticket,
                 'service_name' => $service->name,
-                'date' => $ticket->created_at->format('d/m/Y H:i')
+                'date' => $ticket->created_at->format('d/m/Y H:i'),
+                'google_sheets_error' => $googleSheetsError
             ]);
 
         } catch (\Exception $e) {

@@ -44,6 +44,11 @@ const submitTicket = async () => {
         });
         
         ticketData.value = response.data;
+
+        if (response.data.google_sheets_error) {
+            alert('Peringatan: Tiket berhasil dibuat, tetapi gagal menyimpan ke Google Sheets. Error: ' + response.data.google_sheets_error);
+        }
+
         await nextTick(); 
 
         setTimeout(() => {
