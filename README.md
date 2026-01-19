@@ -17,7 +17,7 @@ Proyek ini dikembangkan sebagai bagian dari **Praktek Kerja Lapangan (PKL)** Mah
 - **Input Data Peserta:** Mewajibkan input Nama, NRP, No HP, dan Perihal sebelum mengambil tiket.
 - **UI Ramah Lansia:** Tombol besar, font jelas, dan input angka otomatis (*numeric keypad*) untuk kemudahan akses rentang usia 20-60+ tahun.
 - **Auto-Print:** Integrasi langsung dengan printer thermal (58mm/80mm) menggunakan CSS Print khusus.
-- **Cetak Struk:** Struk antrian berisi Nomor, Nama, NRP, dan Waktu Kedatangan.
+- **Cetak Struk:** Struk antrian berisi Nomor, Nama, NRP,No HP, Perihal dan Waktu Kedatangan.
 
 ### 2. Modul Petugas (Staff Dashboard)
 - **Multi-Counter:** Mendukung login untuk berbagai loket (CS, Teller, Pengaduan, dll).
@@ -29,6 +29,12 @@ Proyek ini dikembangkan sebagai bagian dari **Praktek Kerja Lapangan (PKL)** Mah
 - **Split Screen Layout:** Menampilkan daftar antrian di sisi kiri dan Video Profil/Iklan di sisi kanan.
 - **Running Text:** Baris informasi berjalan di bagian bawah layar.
 - **Auto-Refresh:** Data antrian diperbarui otomatis tanpa *refresh* halaman (Polling mechanism).
+
+### 4. Modul Admin (Dashboard Admin)
+- **Monitoring Real-time**: Memantau statistik vital seperti Total Antrian, antrian yang Selesai, jumlah antrian Menunggu, dan Rata-rata Waktu pelayanan secara langsung.
+- **Visualisasi Statistik**: Menampilkan grafik tren kedatangan antrian per jam dan diagram batang distribusi jenis layanan (Klaim, Konsultasi, Pendaftaran, Informasi) untuk analisis beban kerja.
+- **Manajemen Data Antrian**: Tabel detail yang menampilkan identitas peserta (Nama, NRP, Telepon) beserta status terkini dari setiap antrian di hari berjalan.
+- **Pelaporan Digital**: Fitur ekspor data ke format Excel untuk kebutuhan audit dan evaluasi performa layanan instansi.
 
 ---
 
