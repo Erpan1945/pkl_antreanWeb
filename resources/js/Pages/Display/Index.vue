@@ -1,85 +1,120 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
-import axios from 'axios';
+import { ref, onMounted, onUnmounted } from 'vue'
+import axios from 'axios'
 
-// State Data
-const activeQueues = ref([]);
-const previousQueueId = ref(null); // Untuk melacak apakah ada nomor baru
-const previousUpdatedAt = ref(null);
-const isAudioEnabled = ref(false); // Browser butuh izin klik user untuk mulai suara
+// ================= STATE =================
+const activeQueues = ref([])
+const previousQueueId = ref(null)
+const previousUpdatedAt = ref(null)
 
-// 1. Fungsi Mengambil Data Terbaru
+const isAudioEnabled = ref(false)
+const voices = ref([])
+const selectedVoice = ref(null)
+
+let interval = null
+let isSpeaking = false
+
+// ================= FETCH DATA =================
 const fetchData = async () => {
-    try {
-        const response = await axios.get('/display/data');
-        const data = response.data;
-        activeQueues.value = data;
+  try {
+    const { data } = await axios.get('/display/data')
+    activeQueues.value = data
 
-        // Cek apakah ada antrian baru yang dipanggil?
-        // Logic: Jika data paling atas (index 0) berbeda ID-nya dengan yang tersimpan, berarti baru.
-        if (data.length > 0) {
-            const latest = data[0];
-            
-            // Logic Baru: Cek ID ATAU Cek Timestamp
-            const isNewQueue = latest.id !== previousQueueId.value;
-            const isRecalled = latest.updated_at !== previousUpdatedAt.value;
+    if (!data.length) return
 
-            // Jika antrian baru ATAU antrian lama dipanggil ulang
-            if (isNewQueue || isRecalled) {
-                
-                // Update tracker kita
-                previousQueueId.value = latest.id;
-                previousUpdatedAt.value = latest.updated_at;
-                
-                // Mainkan suara
-                if (isAudioEnabled.value) {
-                    playVoice(latest);
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Gagal update data", error);
+    const latest = data[0]
+
+    const isNewQueue = latest.id !== previousQueueId.value
+    const isRecalled = latest.updated_at !== previousUpdatedAt.value
+
+    if ((isNewQueue || isRecalled) && isAudioEnabled.value) {
+      previousQueueId.value = latest.id
+      previousUpdatedAt.value = latest.updated_at
+      playVoice(latest)
     }
-};
+  } catch (err) {
+    console.error('Gagal update data:', err)
+  }
+}
 
-// 2. Fungsi Text-to-Speech (Bahasa Indonesia)
+// ================= LOAD VOICES =================
+const loadVoices = () => {
+  const list = window.speechSynthesis.getVoices()
+  voices.value = list
+
+  selectedVoice.value =
+    list.find(v => v.lang === 'id-ID') ||
+    list.find(v => v.name.toLowerCase().includes('indonesia')) ||
+    list.find(v => v.lang.startsWith('id')) ||
+    null
+
+  if (selectedVoice.value) {
+    console.log('Voice digunakan:', selectedVoice.value.name)
+  } else {
+    console.warn('Voice Indonesia tidak ditemukan')
+  }
+}
+
+// ================= PLAY VOICE =================
 const playVoice = (queue) => {
-    // Format kalimat: "Nomor Antrian, A, Kosong Kosong Satu. Silakan Ke, Loket 3"
-    // Tips: Kita eja nomornya agar terdengar natural (001 dibaca "Kosong Kosong Satu")
-    
-    let text = `Nomor Antrian, ${queue.ticket_code}. Silakan ke, ${queue.counter.name}`;
-    
-    // Ganti strip "-" dengan jeda koma agar tidak dibaca "Strip"
-    text = text.replace('-', ', ');
+  if (isSpeaking) return
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'id-ID'; // Set Bahasa Indonesia
-    utterance.rate = 0.9; // Kecepatan bicara (sedikit lambat biar jelas)
-    utterance.pitch = 1;
-    
-    window.speechSynthesis.speak(utterance);
-};
+  // STOP suara sebelumnya
+  window.speechSynthesis.cancel()
 
-// 3. Lifecycle (Jalan saat halaman dibuka)
-let interval = null;
+  let text = `Nomor antrian ${queue.ticket_code}, silakan menuju ${queue.counter.name}`
+  text = text.replace('-', ', ')
 
+  const utterance = new SpeechSynthesisUtterance(text)
+
+  utterance.lang = 'id-ID'
+  utterance.rate = 0.85
+  utterance.pitch = 1
+
+  if (selectedVoice.value) {
+    utterance.voice = selectedVoice.value
+  }
+
+  utterance.onstart = () => {
+    isSpeaking = true
+  }
+
+  utterance.onend = () => {
+    isSpeaking = false
+  }
+
+  utterance.onerror = () => {
+    isSpeaking = false
+  }
+
+  window.speechSynthesis.speak(utterance)
+}
+
+// ================= AUDIO ENABLE =================
+const enableAudio = () => {
+  isAudioEnabled.value = true
+
+  // Dummy suara pendek (bukan kosong)
+  const unlock = new SpeechSynthesisUtterance(' ')
+  unlock.volume = 0
+  window.speechSynthesis.speak(unlock)
+}
+
+// ================= LIFECYCLE =================
 onMounted(() => {
-    fetchData(); // Ambil data pertama kali
-    // Set Interval: Cek database setiap 3 detik (3000ms)
-    interval = setInterval(fetchData, 3000);
-});
+  loadVoices()
+
+  window.speechSynthesis.onvoiceschanged = loadVoices
+
+  fetchData()
+  interval = setInterval(fetchData, 3000)
+})
 
 onUnmounted(() => {
-    clearInterval(interval); // Matikan interval kalau halaman ditutup
-});
-
-// Fungsi Tombol "Mulai Display" (Browser Policy)
-const enableAudio = () => {
-    isAudioEnabled.value = true;
-    // Pancing audio dummy agar browser mengizinkan
-    const dummy = new SpeechSynthesisUtterance("");
-    window.speechSynthesis.speak(dummy);
-};
+  clearInterval(interval)
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.onvoiceschanged = null
+})
 </script>
 
 <template>
@@ -98,7 +133,13 @@ const enableAudio = () => {
                 <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-800 font-bold text-xl">LOGO</div>
                 <h1 class="text-2xl font-bold tracking-wider">PT ASABRI</h1>
             </div>
-            <div class="text-xl font-mono">{{ new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}</div>
+            <div class="flex flex-col items-end">
+                <div class="text-xl font-mono">{{ new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}</div>
+                <div class="text-xs mt-1 opacity-75">
+                    <span v-if="selectedVoice">Suara: {{ selectedVoice.name }}</span>
+                    <span v-else class="text-yellow-300">Suara Indonesia tidak terdeteksi (Cek Pengaturan PC)</span>
+                </div>
+            </div>
         </div>
 
         <div class="flex h-[calc(100vh-80px)]">
