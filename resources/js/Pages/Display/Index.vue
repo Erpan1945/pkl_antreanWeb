@@ -1,120 +1,102 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
+import { ref, onMounted, onUnmounted } from 'vue';
+import axios from 'axios';
+// Import helper yang baru kita buat
+import { callQueue } from '@/utils/queueAudio';
 
-// ================= STATE =================
-const activeQueues = ref([])
-const previousQueueId = ref(null)
-const previousUpdatedAt = ref(null)
+const activeQueues = ref([]);
+const processedState = ref(new Map()); // Menyimpan state terakhir setiap ID: Map<id, updated_at>
+const isAudioEnabled = ref(false);
+let isFirstLoad = true;
 
-const isAudioEnabled = ref(false)
-const voices = ref([])
-const selectedVoice = ref(null)
+let interval = null;
 
-let interval = null
-let isSpeaking = false
+const processAudio = (queue) => {
+    // --- PERSIAPAN DATA UNTUK AUDIO ---
+    // Asumsi format: "A-001"
+    const rawCode = queue.ticket_code; 
+    
+    // Ambil Huruf Depan (A)
+    const prefix = rawCode.charAt(0); 
+    
+    // Ambil Angka Saja (001) - Buang tanda strip/huruf
+    const numberOnly = rawCode.replace(/\D/g, ''); 
 
-// ================= FETCH DATA =================
+    // Panggil Fungsi Audio Helper
+    callQueue({
+        prefix: prefix,       // "A"
+        number: numberOnly,   // "001"
+        counter: queue.counter ? queue.counter.name.replace(/\D/g, '') : '1' // Ambil angka loketnya saja
+    });
+};
+
 const fetchData = async () => {
-  try {
-    const { data } = await axios.get('/display/data')
-    activeQueues.value = data
+    try {
+        const { data } = await axios.get('/display/data');
+        activeQueues.value = data;
 
-    if (!data.length) return
+        // Jangan proses jika data kosong atau audio belum diizinkan user
+        if (!data.length || !isAudioEnabled.value) return;
 
-    const latest = data[0]
+        // --- LOGIKA BARU: MULTI-QUEUE HANDLING ---
+        
+        // 1. Jika ini load pertama, tandai semua sebagai "sudah diproses"
+        // agar tidak bunyi semua sekaligus. Bunyikan HANYA yang paling baru (index 0).
+        if (isFirstLoad) {
+            data.forEach(q => processedState.value.set(q.id, q.updated_at));
+            
+            // Bunyikan yang paling atas (terbaru) sebagai tanda sistem aktif
+            processAudio(data[0]);
+            
+            isFirstLoad = false;
+            return;
+        }
 
-    const isNewQueue = latest.id !== previousQueueId.value
-    const isRecalled = latest.updated_at !== previousUpdatedAt.value
+        // 2. Filter antrian yang BARU atau DI-UPDATE (Recall)
+        const candidates = [];
+        data.forEach(queue => {
+            const lastTime = processedState.value.get(queue.id);
+            
+            // Jika ID belum ada, atau updated_at lebih baru dari yang tersimpan
+            // Perbandingan string tanggal ISO8601 aman secara leksikal
+            if (!lastTime || queue.updated_at > lastTime) {
+                candidates.push(queue);
+                // Update map segera agar tidak diproses ulang di loop berikutnya (jika ada overlap)
+                processedState.value.set(queue.id, queue.updated_at);
+            }
+        });
 
-    if ((isNewQueue || isRecalled) && isAudioEnabled.value) {
-      previousQueueId.value = latest.id
-      previousUpdatedAt.value = latest.updated_at
-      playVoice(latest)
+        // 3. Jika ada kandidat, urutkan berdasarkan WAKTU TERLAMA ke TERBARU
+        // Supaya yang menekan duluan, dipanggil duluan.
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+
+            // 4. Masukkan ke antrian audio
+            candidates.forEach(queue => {
+                processAudio(queue);
+            });
+        }
+
+    } catch (e) {
+        console.error("Gagal mengambil data antrian:", e);
     }
-  } catch (err) {
-    console.error('Gagal update data:', err)
-  }
-}
+};
 
-// ================= LOAD VOICES =================
-const loadVoices = () => {
-  const list = window.speechSynthesis.getVoices()
-  voices.value = list
-
-  selectedVoice.value =
-    list.find(v => v.lang === 'id-ID') ||
-    list.find(v => v.name.toLowerCase().includes('indonesia')) ||
-    list.find(v => v.lang.startsWith('id')) ||
-    null
-
-  if (selectedVoice.value) {
-    console.log('Voice digunakan:', selectedVoice.value.name)
-  } else {
-    console.warn('Voice Indonesia tidak ditemukan')
-  }
-}
-
-// ================= PLAY VOICE =================
-const playVoice = (queue) => {
-  if (isSpeaking) return
-
-  // STOP suara sebelumnya
-  window.speechSynthesis.cancel()
-
-  let text = `Nomor antrian ${queue.ticket_code}, silakan menuju ${queue.counter.name}`
-  text = text.replace('-', ', ')
-
-  const utterance = new SpeechSynthesisUtterance(text)
-
-  utterance.lang = 'id-ID'
-  utterance.rate = 0.85
-  utterance.pitch = 1
-
-  if (selectedVoice.value) {
-    utterance.voice = selectedVoice.value
-  }
-
-  utterance.onstart = () => {
-    isSpeaking = true
-  }
-
-  utterance.onend = () => {
-    isSpeaking = false
-  }
-
-  utterance.onerror = () => {
-    isSpeaking = false
-  }
-
-  window.speechSynthesis.speak(utterance)
-}
-
-// ================= AUDIO ENABLE =================
 const enableAudio = () => {
-  isAudioEnabled.value = true
+    isAudioEnabled.value = true;
+    // Pancing audio dummy agar browser mengizinkan autoplay selanjutnya
+    const unlock = new Audio();
+    unlock.play().catch(() => {});
+};
 
-  // Dummy suara pendek (bukan kosong)
-  const unlock = new SpeechSynthesisUtterance(' ')
-  unlock.volume = 0
-  window.speechSynthesis.speak(unlock)
-}
-
-// ================= LIFECYCLE =================
 onMounted(() => {
-  loadVoices()
-
-  window.speechSynthesis.onvoiceschanged = loadVoices
-
-  fetchData()
-  interval = setInterval(fetchData, 3000)
-})
+    fetchData();
+    interval = setInterval(fetchData, 3000);
+});
 
 onUnmounted(() => {
-  clearInterval(interval)
-  window.speechSynthesis.cancel()
-  window.speechSynthesis.onvoiceschanged = null
-})
+    clearInterval(interval);
+});
 </script>
 
 <template>
@@ -130,14 +112,15 @@ onUnmounted(() => {
 
         <div class="h-20 bg-blue-800 flex items-center justify-between px-10 shadow-lg relative z-10">
             <div class="flex items-center gap-4">
-                <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-800 font-bold text-xl">LOGO</div>
+                <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-800 font-bold text-xl">
+                    LOGO
+                </div>
                 <h1 class="text-2xl font-bold tracking-wider">PT ASABRI</h1>
             </div>
+            
             <div class="flex flex-col items-end">
-                <div class="text-xl font-mono">{{ new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}</div>
-                <div class="text-xs mt-1 opacity-75">
-                    <span v-if="selectedVoice">Suara: {{ selectedVoice.name }}</span>
-                    <span v-else class="text-yellow-300">Suara Indonesia tidak terdeteksi (Cek Pengaturan PC)</span>
+                <div class="text-xl font-mono uppercase">
+                    {{ new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
                 </div>
             </div>
         </div>
@@ -145,7 +128,6 @@ onUnmounted(() => {
         <div class="flex h-[calc(100vh-80px)]">
             
             <div class="w-7/12 bg-gray-800 p-6 flex flex-col gap-4 border-r border-gray-700">
-                
                 <div class="flex justify-between text-gray-400 px-4 uppercase text-sm tracking-widest mb-2">
                     <span>Nomor Antrian</span>
                     <span>Tujuan Loket</span>
@@ -167,9 +149,7 @@ onUnmounted(() => {
                             <span class="text-7xl font-black tracking-tighter">{{ queue.ticket_code }}</span>
                         </div>
 
-                        <div class="text-6xl text-blue-600">
-                            ➝
-                        </div>
+                        <div class="text-6xl text-blue-600">➝</div>
 
                         <div class="text-right">
                             <span class="text-sm text-gray-500 font-bold uppercase">Silakan Menuju</span>
@@ -180,19 +160,25 @@ onUnmounted(() => {
 
                 <div v-if="activeQueues.length === 0" class="flex-1 flex items-center justify-center text-gray-500 flex-col opacity-50">
                     <div class="text-6xl mb-4">☕</div>
-                    <p class="text-2xl">Belum ada panggilan antrian.</p>
+                    <p class="text-2xl">Menunggu antrian dipanggil...</p>
                 </div>
             </div>
 
-            <div class="w-5/12 bg-black relative">
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <p class="text-gray-600 text-center px-10">
-                        (Area ini bisa diisi Video Profil Instansi, Slide Iklan, atau Pengumuman)
-                    </p>
-                </div>
+            <div class="w-5/12 bg-black relative flex items-center justify-center overflow-hidden">
+                <!-- <iframe 
+                    class="w-full h-full absolute inset-0 object-cover opacity-80"
+                    src="" 
+                    title="Company Profile" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+                </iframe> -->
+                (Area ini bisa diisi Video Profil Instansi, Slide Iklan, atau Pengumuman)
                 
-                <div class="absolute bottom-0 w-full bg-blue-900 py-3 overflow-hidden whitespace-nowrap">
-                    <div class="animate-marquee inline-block text-white font-bold text-lg">
+                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black opacity-60"></div>
+                
+                <div class="absolute bottom-0 w-full bg-blue-900/90 py-4 overflow-hidden whitespace-nowrap z-20 backdrop-blur-md border-t border-blue-500">
+                    <div class="animate-marquee inline-block text-white font-bold text-xl tracking-wide">
                         Selamat Datang di Pelayanan Terpadu. Budayakan antri untuk kenyamanan bersama. Jam operasional: 08.00 - 15.00 WIB.
                     </div>
                 </div>
@@ -203,24 +189,15 @@ onUnmounted(() => {
 </template>
 
 <style>
-/* Animasi Masuk List */
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.5s ease;
-}
-.list-enter-from,
-.list-leave-to {
-  opacity: 0;
-  transform: translateX(-30px);
-}
+.list-enter-active, .list-leave-active { transition: all 0.5s ease; }
+.list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-30px); }
 
-/* Animasi Running Text */
 @keyframes marquee {
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
 }
 .animate-marquee {
-    animation: marquee 20s linear infinite;
-    padding-left: 100%; /* Start dari luar layar */
+    animation: marquee 25s linear infinite;
+    padding-left: 100%;
 }
 </style>
