@@ -23,6 +23,9 @@ Route::post('/staff/recall', [StaffController::class, 'recall'])->name('staff.re
 // Dashboard Utama Petugas
 Route::get('/staff/{counterId}/dashboard', [StaffController::class, 'dashboard'])->name('staff.dashboard');
 
+// API Data Realtime Staff (Polling)
+Route::get('/staff/{counterId}/stats', [StaffController::class, 'getStats'])->name('staff.stats');
+
 // Action Tombol
 Route::post('/staff/call-next', [StaffController::class, 'callNext'])->name('staff.callNext');
 Route::post('/staff/complete', [StaffController::class, 'complete'])->name('staff.complete');

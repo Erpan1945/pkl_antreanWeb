@@ -101,4 +101,27 @@ class StaffController extends Controller
 
         return back();
     }
+
+    // 5. API: Data Realtime untuk Polling
+    public function getStats($counterId)
+    {
+        $counter = Counter::findOrFail($counterId);
+        $today = Carbon::today();
+
+        // Cek antrian yang sedang dilayani
+        $currentServing = Queue::where('counter_id', $counter->id)
+            ->where('status', 'called')
+            ->whereDate('created_at', $today)
+            ->first();
+
+        // Hitung antrian menunggu
+        $waitingCount = Queue::where('status', 'waiting')
+            ->whereDate('created_at', $today)
+            ->count();
+
+        return response()->json([
+            'currentServing' => $currentServing,
+            'waitingCount' => $waitingCount
+        ]);
+    }
 }
