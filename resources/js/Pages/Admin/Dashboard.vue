@@ -261,13 +261,48 @@ const getStatusBadge = (status) => {
                     </table>
                 </div>
             </div>
+        </div>
 
-            <div class="bg-blue-900 text-white py-2 overflow-hidden border-t-4 border-yellow-400 relative flex-shrink-0 z-20">
-                <div class="animate-marquee whitespace-nowrap font-bold text-lg tracking-wide">
-                    PT Asabri (Persero) | Melayani dengan Sepenuh Hati - PT Asabri (Persero) | Melayani dengan Sepenuh Hati - PT Asabri (Persero) | Melayani dengan Sepenuh Hati
-                </div>
+        <div class="bg-blue-900 text-white py-3 w-full border-t-4 border-yellow-400 relative overflow-hidden flex">
+            
+            <div class="animate-marquee whitespace-nowrap flex-shrink-0 flex items-center">
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
+            </div>
+
+            <div class="animate-marquee whitespace-nowrap flex-shrink-0 flex items-center">
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-1 text-yellow-400">•</span>
             </div>
 
         </div>
     </div>
 </template>
+
+<style>
+/* Animasi Bergerak ke Kiri Sejauh Lebar Dirinya Sendiri (-100%) */
+@keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+    /* flex-shrink-0 WAJIB agar div tidak mengecil/turun */
+    flex-shrink: 0;
+    min-width: 100%;
+    /* Durasi 40s agar gerakan halus (sesuaikan jika ingin lebih cepat/lambat) */
+    animation: marquee 40s linear infinite;
+}
+</style>
