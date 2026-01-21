@@ -7,6 +7,13 @@ use Inertia\Inertia;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\DisplayController;
+use App\Http\Controllers\AdminDashboardController;
+
+// Halaman Admin Dashboard & Export Excel
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/admin/export', [AdminDashboardController::class, 'export'])->name('admin.export');
+});
 
 // Halaman Display TV
 Route::get('/display', [DisplayController::class, 'index'])->name('display.index');
