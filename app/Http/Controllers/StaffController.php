@@ -7,34 +7,41 @@ use App\Models\Counter;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 class StaffController extends Controller
 {
-    // 1. Tampilkan Dashboard Petugas
+    /**
+     * 1. Halaman Pilih Loket (Setelah Login sebagai Staff)
+     */
     public function index()
     {
-        // Ambil semua loket untuk dipilih di awal (Login sederhana)
+        // Ambil data loket yang tersedia
+        $counters = Counter::all();
+
         return Inertia::render('Staff/Index', [
-            'counters' => Counter::all()
+            'counters' => $counters,
+            'auth' => [
+                'user' => Auth::user()
+            ]
         ]);
     }
 
-    // 2. Tampilkan Halaman Kontrol (Setelah pilih Loket)
+    /**
+     * 2. Dashboard Staff (Tempat Kerja Utama)
+     */
     public function dashboard($counterId)
     {
         $counter = Counter::findOrFail($counterId);
         $today = Carbon::today();
 
-        // Cek apakah loket ini sedang melayani seseorang (Status 'called')
+        // Cek apakah loket ini sedang melayani seseorang (Status 'called' atau 'serving')
         $currentServing = Queue::where('counter_id', $counter->id)
-            ->where('status', 'called')
+            ->whereIn('status', ['called', 'serving'])
             ->whereDate('created_at', $today)
             ->first();
 
-        // Hitung sisa antrian yang belum dipanggil (Waiting)
-        // Logika: Ambil antrian yang service_id-nya cocok dengan loket ini? 
-        // (Sederhana dulu: Kita anggap semua loket bisa panggil semua layanan, 
-        // atau nanti difilter per layanan).
+        // Hitung sisa antrian yang masih menunggu (Waiting)
         $waitingCount = Queue::where('status', 'waiting')
             ->whereDate('created_at', $today)
             ->count();
@@ -43,11 +50,13 @@ class StaffController extends Controller
             'counter' => $counter,
             'currentServing' => $currentServing,
             'waitingCount' => $waitingCount,
-            'lastCalled' => session('last_called_ticket') // Opsional: untuk notif
+            // 'auth' otomatis dikirim oleh Inertia via HandleInertiaRequests middleware
         ]);
     }
 
-    // 3. Logic: Panggil Antrian Berikutnya
+    /**
+     * 3. Logic: Panggil Antrian Berikutnya
+     */
     public function callNext(Request $request)
     {
         $counter = Counter::findOrFail($request->counter_id);
@@ -55,7 +64,7 @@ class StaffController extends Controller
 
         // A. Selesaikan dulu antrian sebelumnya (jika ada yg lupa diselesaikan)
         Queue::where('counter_id', $counter->id)
-            ->where('status', 'called')
+            ->whereIn('status', ['called', 'serving'])
             ->update(['status' => 'completed']);
 
         // B. Cari antrian 'waiting' paling lama (First In First Out)
@@ -72,13 +81,16 @@ class StaffController extends Controller
         // C. Update Status Antrian jadi 'called' & Masukkan ID Loket
         $nextQueue->update([
             'status' => 'called',
-            'counter_id' => $counter->id
+            'counter_id' => $counter->id,
+            // 'updated_at' otomatis terupdate untuk trigger Display TV
         ]);
 
-        return back()->with('last_called_ticket', $nextQueue);
+        return back(); // Tidak perlu kirim data, Dashboard.vue akan auto-refresh via props/polling
     }
 
-    // 4. Logic: Tandai Selesai
+    /**
+     * 4. Logic: Tandai Selesai
+     */
     public function complete(Request $request)
     {
         $queue = Queue::findOrFail($request->queue_id);
@@ -87,22 +99,27 @@ class StaffController extends Controller
         return back();
     }
 
+    /**
+     * 5. Logic: Panggil Ulang (Recall)
+     */
     public function recall(Request $request)
     {
         // Cari antrian yang sedang "called" di loket ini hari ini
         $queue = Queue::where('counter_id', $request->counter_id)
-            ->where('status', 'called')
+            ->whereIn('status', ['called', 'serving'])
             ->whereDate('created_at', Carbon::today())
             ->first();
 
         if ($queue) {
-            $queue->touch(); // FUNGSI AJAIB: Update 'updated_at' jadi sekarang
+            $queue->touch(); // FUNGSI AJAIB: Update 'updated_at' jadi sekarang agar terdeteksi TV sebagai "baru"
         }
 
         return back();
     }
 
-    // 5. API: Data Realtime untuk Polling
+    /**
+     * 6. API: Data Realtime untuk Polling (Dashboard Staff Auto-Update)
+     */
     public function getStats($counterId)
     {
         $counter = Counter::findOrFail($counterId);
@@ -110,7 +127,7 @@ class StaffController extends Controller
 
         // Cek antrian yang sedang dilayani
         $currentServing = Queue::where('counter_id', $counter->id)
-            ->where('status', 'called')
+            ->whereIn('status', ['called', 'serving'])
             ->whereDate('created_at', $today)
             ->first();
 

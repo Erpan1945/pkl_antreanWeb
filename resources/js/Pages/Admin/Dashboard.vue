@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, Link } from '@inertiajs/vue3';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line, Bar } from 'vue-chartjs';
 
@@ -104,28 +104,47 @@ const getStatusBadge = (status) => {
     <div class="min-h-screen bg-gray-50 font-sans">
         <Head title="Dashboard Admin" />
 
-        <div class="bg-blue-900 text-white px-8 py-4 flex justify-between items-center shadow-lg">
+        <div class="bg-blue-900 text-white px-8 py-4 flex justify-between items-center shadow-lg sticky top-0 z-30">
             <div class="flex items-center gap-4">
                 <div class="w-14 h-14 bg-white rounded-lg flex items-center justify-center p-1 overflow-hidden shadow-sm">
-                    <img 
-                        src="/images/logo-asabri.png" 
-                        alt="Logo Asabri" 
-                        class="w-full h-full object-contain"
-                    />
+                    <img src="/images/logo-asabri.png" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-wide">PT Asabri (Persero) KC Malang</h1>
+                    <h1 class="text-xl font-bold tracking-wide leading-tight">PT Asabri (Persero) KC Malang</h1>
                     <p class="text-xs text-blue-200">Jl. Raden Intan No.Kav 74, Malang</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <div class="text-right">
-                    <div class="text-3xl font-mono font-bold">{{ currentTime }}</div>
+
+            <div class="flex items-center gap-6">
+                
+                <div class="text-right hidden md:block">
+                    <div class="text-3xl font-mono font-bold leading-none">{{ currentTime }}</div>
+                    <div class="text-[10px] text-blue-300 uppercase tracking-widest mt-1">Waktu Server</div>
+                </div>
+
+                <div class="h-10 w-px bg-blue-700 hidden md:block"></div>
+
+                <div class="flex items-center gap-3">
+                    
+                    <Link :href="route('staff.index')" class="group flex flex-col items-center justify-center bg-blue-800 hover:bg-blue-700 border border-blue-600 rounded-lg px-4 py-2 transition active:scale-95" title="Masuk ke Mode Staff/Loket">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-blue-200 group-hover:text-white">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                        </svg>
+                        <span class="text-[10px] font-bold text-blue-100 mt-0.5">MODE STAFF</span>
+                    </Link>
+
+                    <Link :href="route('logout')" method="post" as="button" class="group flex flex-col items-center justify-center bg-red-600 hover:bg-red-500 border border-red-700 rounded-lg px-4 py-2 transition active:scale-95" title="Keluar Aplikasi">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-white">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                        </svg>
+                        <span class="text-[10px] font-bold text-white mt-0.5">LOGOUT</span>
+                    </Link>
+
                 </div>
             </div>
         </div>
 
-        <div class="h-2 bg-yellow-400 w-full"></div>
+        <div class="h-2 bg-yellow-400 w-full shadow-md"></div>
 
         <div class="p-8 max-w-7xl mx-auto space-y-8">
             
