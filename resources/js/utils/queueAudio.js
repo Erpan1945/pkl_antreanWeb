@@ -14,19 +14,25 @@ const buildPlaylist = ({ prefix, number, counter }) => {
     playlist.push(`${BASE_PATH}/frasa/nomor_antrian.mp3`);
 
     // 2. Huruf (A, B, C)
-    playlist.push(`${BASE_PATH}/huruf/${prefix.toLowerCase()}.mp3`);
+    if (prefix) {
+        playlist.push(`${BASE_PATH}/huruf/${prefix.toLowerCase()}.mp3`);
+    }
 
     // 3. Angka (001 → 0 0 1)
-    number.toString().split('').forEach(digit => {
-        playlist.push(`${BASE_PATH}/angka/${digit}.mp3`);
-    });
+    if (number) {
+        number.toString().split('').forEach(digit => {
+            playlist.push(`${BASE_PATH}/angka/${digit}.mp3`);
+        });
+    }
 
     // 4. "Silakan menuju"
     playlist.push(`${BASE_PATH}/frasa/silakan_menuju.mp3`);
 
     // 5. Loket
     playlist.push(`${BASE_PATH}/frasa/loket.mp3`);
-    playlist.push(`${BASE_PATH}/angka/${counter}.mp3`);
+    if (counter) {
+        playlist.push(`${BASE_PATH}/angka/${counter}.mp3`);
+    }
 
     return playlist;
 };
@@ -57,20 +63,29 @@ const processAnnouncementQueue = () => {
     if (isPlaying || announcementQueue.length === 0) return;
 
     isPlaying = true;
-    const nextData = announcementQueue.shift(); // Ambil data antrian terdepan
+    
+    // --- PERUBAHAN DI SINI: Ambil data BESERTA callback-nya ---
+    const { data, onFinish } = announcementQueue.shift(); 
 
-    const playlist = buildPlaylist(nextData);
+    const playlist = buildPlaylist(data);
 
     playPlaylist(playlist, () => {
+        // --- PERUBAHAN DI SINI: Panggil callback saat audio selesai ---
+        if (onFinish) onFinish();
+
         isPlaying = false;
         processAnnouncementQueue(); // Cek apakah ada antrian berikutnya
     });
 };
 
 // ================= PUBLIC API =================
-export const callQueue = (data) => {
-    // Masukkan ke antrian pengumuman, jangan langsung mainkan
-    announcementQueue.push(data);
+// --- PERUBAHAN DI SINI: Terima parameter onFinishCallback ---
+export const callQueue = (data, onFinishCallback = null) => {
+    // Masukkan object { data, onFinish } ke antrian
+    announcementQueue.push({ 
+        data: data, 
+        onFinish: onFinishCallback 
+    });
     
     // Trigger processor
     processAnnouncementQueue();

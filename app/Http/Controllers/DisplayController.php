@@ -2,29 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Queue;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Models\Queue;
+use Carbon\Carbon;
 
 class DisplayController extends Controller
 {
-    // 1. Tampilkan Halaman TV
     public function index()
     {
         return Inertia::render('Display/Index');
     }
 
-    // 2. API untuk mengambil data terbaru (Dipanggil setiap 3 detik oleh Vue)
+    // FUNGSI API DATA
     public function getData()
     {
-        // Ambil antrian yang statusnya SEDANG DIPANGGIL ('called')
-        // Urutkan dari yang paling baru diupdate (supaya yang baru dipanggil muncul paling atas)
-        $activeQueues = Queue::with(['service', 'counter'])
-            ->where('status', 'called')
-            ->whereDate('created_at', now())
-            ->orderBy('updated_at', 'desc')
+        $queues = Queue::with(['service', 'counter']) 
+            ->whereDate('created_at', Carbon::today())
+            // PERBAIKAN DI SINI: Gunakan 'called' (bukan calling)
+            ->whereIn('status', ['waiting', 'called']) 
+            
+            // Prioritaskan yang statusnya 'called' di paling atas
+            ->orderByRaw("CASE WHEN status = 'called' THEN 1 ELSE 2 END") 
+            ->orderBy('updated_at', 'desc') 
             ->get();
 
-        return response()->json($activeQueues);
+        return response()->json($queues);
     }
 }
