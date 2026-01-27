@@ -286,24 +286,24 @@ const getStatusBadge = (status) => {
         <div class="bg-blue-900 text-white py-3 w-full border-t-4 border-yellow-400 relative overflow-hidden flex">
             
             <div class="animate-marquee whitespace-nowrap flex-shrink-0 flex items-center">
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
             </div>
 
             <div class="animate-marquee whitespace-nowrap flex-shrink-0 flex items-center">
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
-                <span class="mx-4 text-lg font-bold tracking-wide">PT Asabri (Persero) | Melayani dengan Sepenuh Hati</span>
+                <span class="mx-4 text-lg font-bold tracking-wide">PT ASABRI (Persero) | Melayani dengan Sepenuh Hati</span>
                 <span class="mx-1 text-yellow-400">•</span>
             </div>
 
