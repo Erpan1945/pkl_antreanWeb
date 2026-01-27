@@ -81,12 +81,12 @@ const complete = () => {
 
 <template>
     <div class="min-h-screen bg-gray-50 font-sans flex flex-col">
-        <Head :title="`Loket ${counter?.number || counter?.name || '?'} - Staff`" />
+        <Head :title="`${counter.name} - Dashboard Staff`" />
 
         <div class="bg-blue-900 text-white px-6 py-4 flex justify-between items-center shadow-lg">
             <div>
                 <h1 class="text-xl font-bold">{{ auth.user.name }}</h1>
-                <p class="text-xs text-blue-200">Bertugas di: <span class="font-bold text-yellow-400">{{ counter.name }} (Loket {{ counter.number }})</span></p>
+                <p class="text-xs text-blue-200">Bertugas di: <span class="font-bold text-yellow-400">{{ counter.name }}</span></p>
             </div>
             <div class="flex items-center gap-3">
                 
