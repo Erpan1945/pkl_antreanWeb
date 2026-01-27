@@ -111,7 +111,7 @@ const getStatusBadge = (status) => {
                     <img src="/images/logo-asabri.png" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-wide leading-tight">PT Asabri (Persero) KC Malang</h1>
+                    <h1 class="text-xl font-bold tracking-wide leading-tight">PT ASABRI (Persero) KC Malang</h1>
                     <p class="text-xs text-blue-200">Jl. Raden Intan No.Kav 74, Malang</p>
                 </div>
             </div>
