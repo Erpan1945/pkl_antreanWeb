@@ -101,6 +101,7 @@ const getStatusBadge = (status) => {
 </script>
 
 <template>
+    <Head :title="`Dashboard Admin`" />
     <div class="min-h-screen bg-gray-50 font-sans">
         <Head title="Dashboard Admin" />
 

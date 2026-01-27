@@ -80,8 +80,9 @@ const complete = () => {
 </script>
 
 <template>
+    <Head :title="`${counter.name} - Dashboard Staff`" />
+    
     <div class="min-h-screen bg-gray-50 font-sans flex flex-col">
-        <Head :title="`${counter.name} - Dashboard Staff`" />
 
         <div class="bg-blue-900 text-white px-6 py-4 flex justify-between items-center shadow-lg">
             <div>
