@@ -1,4 +1,5 @@
 <script setup>
+import { Head } from '@inertiajs/vue3';
 import { ref, nextTick, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 
@@ -80,6 +81,8 @@ const submitTicket = async () => {
 </script>
 
 <template>
+    <Head title="Pendaftaran Mandiri" />
+    
     <div class="h-screen w-screen bg-white flex flex-col font-sans overflow-hidden">
         
         <div class="bg-blue-900 text-white px-8 py-3 flex justify-between items-center relative shadow-md flex-shrink-0 z-20 border-b-4 border-yellow-400">
@@ -88,7 +91,7 @@ const submitTicket = async () => {
                     <img src="/images/logo-asabri.png" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-wide leading-tight">PT Asabri (Persero) KC Malang</h1>
+                    <h1 class="text-xl font-bold tracking-wide leading-tight">PT ASABRI (Persero) KC Malang</h1>
                     <p class="text-xs text-blue-200 mt-0.5 leading-tight">
                         Ruko Raden Intan Square Jl. Raden Intan No.Kav. 74/I, Malang
                     </p>
