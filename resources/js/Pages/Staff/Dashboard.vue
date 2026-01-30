@@ -1,237 +1,222 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Head, router } from '@inertiajs/vue3'
+import { router } from '@inertiajs/vue3'
 import axios from 'axios'
+import DisplayLayout from '@/Layouts/DisplayLayout.vue';
 
-// Menerima data dari StaffController::dashboard()
+// PROPS (Data Awal dari Controller)
 const props = defineProps({
-  counter: Object,        // Data Loket (ID, Nama)
-  currentServing: Object, // Data Antrian yg sedang dipanggil
-  waitingCount: Number,   // Jumlah sisa antrian
-  auth: Object            // Data User Login
+  counter: Object,
+  currentServing: Object,
+  waitingList: Array,
+  stats: Object,
+  auth: Object
 })
 
-// State Lokal untuk UI Realtime
+// STATE REAKTIF
 const localServing = ref(props.currentServing)
-const localWaiting = ref(props.waitingCount)
-// Tambahan: Stats Total & Selesai (Nanti diambil dari API getStats)
-const stats = ref({ total: 0, finished: 0 }) 
-const waitingList = ref([]) // Nanti diambil dari API jika perlu
+const waitingList = ref(props.waitingList || [])
+const stats = ref(props.stats || { total: 0, finished: 0 })
+const isLoading = ref(false) // State loading tombol
 
-const clock = ref('00:00:00 WIB')
-let interval = null
+let pollingInterval = null
 
-// JAM WIB
-const updateClock = () => {
-  const now = new Date()
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000
-  const wib = new Date(utc + 7 * 60 * 60000)
-  clock.value = wib.toLocaleTimeString('id-ID') + ' WIB'
-}
-
-// FETCH DATA REALTIME (Polling ke StaffController::getStats)
+// --- FUNGSI UPDATE REALTIME (POLLING) ---
 const fetchUpdates = async () => {
   try {
-    // Panggil Route: /staff/{counterId}/stats
-    const res = await axios.get(route('staff.stats', props.counter.id))
-    
-    // Update State Lokal dari Response Controller
-    localServing.value = res.data.currentServing
-    localWaiting.value = res.data.waitingCount
-    
-    // Note: StaffController::getStats Anda saat ini belum mengembalikan 'waitingList' & 'stats' lengkap.
-    // Jadi untuk sementara kita pakai data yang ada dulu, atau Anda bisa update Controller nanti.
-    // Jika controller sudah diupdate, bisa uncomment baris bawah:
-    // waitingList.value = res.data.waitingList || []
-    // stats.value = res.data.stats || { total: 0, finished: 0 }
+      // PERBAIKAN: Tambahkan timestamp (?t=...) agar browser TIDAK MENYIMPAN CACHE
+      const timestamp = new Date().getTime();
+      const url = `/staff/${props.counter.id}/stats?t=${timestamp}`;
+      
+      const res = await axios.get(url);
+      
+      // Update Data Tampilan
+      localServing.value = res.data.currentServing;
+      waitingList.value = res.data.waitingList || [];
+      stats.value = res.data.stats;
 
-  } catch (error) {
-    console.error("Gagal update data:", error)
+      // Debugging di Console (Cek tekan F12 > Console jika data tidak muncul)
+      console.log('Realtime Update:', new Date().toLocaleTimeString());
+
+  } catch (e) {
+      console.error("Gagal polling data:", e);
   }
 }
 
+// --- LIFECYCLE ---
 onMounted(() => {
-  updateClock()
-  // Interval polling tiap 3 detik
-  interval = setInterval(() => {
-    updateClock()
-    fetchUpdates()
-  }, 3000)
+  // 1. Ambil data segera saat halaman dimuat
+  fetchUpdates();
+
+  // 2. Jalankan Polling setiap 3 detik (3000ms)
+  pollingInterval = setInterval(fetchUpdates, 3000);
 })
 
-onUnmounted(() => clearInterval(interval))
+onUnmounted(() => {
+  // Bersihkan interval saat keluar halaman agar tidak memberatkan browser
+  if (pollingInterval) clearInterval(pollingInterval);
+})
 
-// --- ACTIONS (Terhubung ke Route StaffController) ---
+// --- TOMBOL AKSI (TANPA RELOAD HALAMAN) ---
 
-const callNext = () => {
-  // Post ke: /staff/call-next
-  router.post(route('staff.callNext'), {
-    counter_id: props.counter.id // Wajib kirim ID Loket
-  }, {
-    preserveScroll: true,
-    onSuccess: () => fetchUpdates()
-  })
-}
+const handleAction = async (url, payload = {}) => {
+    if (isLoading.value) return; // Cegah klik ganda
+    isLoading.value = true;
 
-const recall = () => {
-  // Post ke: /staff/recall
-  router.post(route('staff.recall'), {
-    counter_id: props.counter.id // Wajib kirim ID Loket
-  }, {
-    preserveScroll: true,
-    onSuccess: () => fetchUpdates()
-  })
-}
-
-const complete = () => {
-  if (!localServing.value) return
-
-  // Post ke: /staff/complete
-  router.post(route('staff.complete'), {
-    queue_id: localServing.value.id // Wajib kirim ID Antrian
-  }, {
-    preserveScroll: true,
-    onSuccess: () => {
-      localServing.value = null
-      fetchUpdates()
+    try {
+        await axios.post(url, { ...payload, counter_id: props.counter.id });
+        
+        // PENTING: Langsung tarik data terbaru setelah aksi berhasil
+        await fetchUpdates(); 
+        
+    } catch (e) {
+        alert("Gagal memproses aksi. Periksa koneksi internet.");
+    } finally {
+        isLoading.value = false;
     }
-  })
 }
+
+// Wrapper Functions
+const callNext = () => handleAction('/staff/call-next')
+const recall = () => handleAction('/staff/recall')
+const complete = () => {
+    if (!localServing.value) return;
+    // Optimis: Kosongkan layar dulu biar terasa cepat
+    const tempId = localServing.value.id;
+    localServing.value = null; 
+    
+    handleAction('/staff/complete', { queue_id: tempId });
+}
+
+// Navigasi Biasa
+const changeCounter = () => router.get('/staff');
+const logout = () => router.post('/logout');
 </script>
 
 <template>
-  <Head :title="`Loket ${counter.name} - Admin Antrean`">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-      rel="stylesheet"
-    >
-  </Head>
-
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo-box">
-        <img src="/images/logo-asabri.png" alt="ASABRI" />
-      </div>
-      <div>
-        <h1>Kancab PT ASABRI (Persero) Malang</h1>
-        <p>Ruko Raden Intan Square Blok 1-2</p>
-        <p>Kota Malang, Jawa Timur</p>
-      </div>
-    </div>
-    <div class="clock">{{ clock }}</div>
-  </header>
-
-  <section class="greeting">
-    <h2>Halo, {{ auth.user.name }}</h2>
-    <p>Bertugas di: <strong>{{ counter.name }}</strong> 👋</p>
-    <span class="badge">Sisa Antrian: {{ localWaiting }}</span>
-  </section>
-
-  <section class="cards">
-    <div class="card blue">
-      <div class="card-icon blue">👥</div>
-      <h3>{{ stats.total || '-' }}</h3>
-      <p>Total Antrian</p>
-    </div>
-
-    <div class="card green">
-      <div class="card-icon green">📈</div>
-      <h3>{{ stats.finished || '-' }}</h3>
-      <p>Selesai</p>
-    </div>
-
-    <div class="card orange">
-      <div class="card-icon orange">⏳</div>
-      <h3>{{ localWaiting }}</h3>
-      <p>Menunggu</p>
-    </div>
-
-    <div class="card purple">
-      <div class="card-icon purple">⏱️</div>
-      <h3>-</h3>
-      <p>Rata-rata Waktu</p>
-    </div>
-  </section>
-
-  <section class="main">
-    <div class="current">
-      <h4>SEDANG MELAYANI</h4>
-
-      <div class="queue-number">
-        {{ localServing?.ticket_code ?? '-' }}
-      </div>
-
-      <span class="status">
-        Status: {{ localServing ? localServing.status.toUpperCase() : 'MENUNGGU' }}
-      </span>
-
-      <div class="info">
-        <div>
-          <small>Nama</small>
-          <p>{{ localServing?.guest_name ?? '-' }}</p>
-        </div>
-        <div>
-          <small>Identitas</small>
-          <p>{{ localServing?.identity_number ?? '-' }}</p>
-        </div>
-        <div>
-          <small>Perihal</small>
-          <p>{{ localServing?.purpose ?? '-' }}</p>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button
-          class="btn success"
-          :disabled="!localServing"
-          @click="complete"
-        >
-          ✔ Selesai
-        </button>
-
-        <button class="btn warning" :disabled="!localServing" @click="recall">
-          🔔 Panggil Ulang
-        </button>
-
-        <button class="btn primary" @click="callNext">
-          ▶ Panggil Berikutnya
-        </button>
-      </div>
-    </div>
-
-    <div class="waiting">
-      <h4>ANTRIAN MENUNGGU</h4>
-      
-      <div v-if="waitingList.length > 0">
-          <div
-            v-for="item in waitingList"
-            :key="item.id"
-            class="wait-item"
-          >
-            <strong>{{ item.ticket_code }}</strong>
-            <p>{{ item.guest_name }}</p>
-            <small>{{ item.purpose }}</small>
+  <DisplayLayout :title="`Loket ${counter.name}`">
+    
+    <div class="dashboard-fit-container">
+        
+        <section class="header-section">
+          <div>
+            <h2 class="text-xl font-bold text-blue-900">Halo, {{ auth?.user?.name }}</h2>
+            <p class="text-sm text-gray-500">Bertugas di: <strong>{{ counter.name }}</strong></p>
           </div>
-      </div>
+          <div class="header-actions">
+              <div class="live-indicator">
+                  <span class="dot"></span> Live
+              </div>
+              <button class="btn-text" @click="changeCounter">🔄 Ganti Loket</button>
+              <button class="btn-logout" @click="logout">Logout</button>
+          </div>
+        </section>
 
-      <p v-if="waitingList.length === 0" style="text-align:center;color:#777; margin-top: 20px; font-style: italic;">
-              Tidak ada antrian menunggu
-      </p>
+        <section class="stats-grid">
+          <div class="stat-card blue">
+            <span class="icon">👥</span>
+            <div>
+                <h3>{{ stats.total }}</h3>
+                <p>Total</p>
+            </div>
+          </div>
+          <div class="stat-card green">
+            <span class="icon">📈</span>
+            <div>
+                <h3>{{ stats.finished }}</h3>
+                <p>Selesai</p>
+            </div>
+          </div>
+          <div class="stat-card orange">
+            <span class="icon">⏳</span>
+            <div>
+                <h3>{{ waitingList.length }}</h3>
+                <p>Menunggu</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace">
+            
+            <div class="panel serving-panel">
+                <div class="panel-title">SEDANG MELAYANI</div>
+                
+                <div class="serving-body">
+                    <div v-if="localServing" class="w-full flex flex-col items-center gap-4">
+                        <div class="ticket-display animate-pop">
+                            {{ localServing.ticket_code }}
+                        </div>
+
+                        <span class="status-badge active">STATUS: DIPANGGIL</span>
+
+                        <div class="guest-info">
+                            <div class="info-col">
+                                <small>Nama</small>
+                                <p>{{ localServing.guest_name }}</p>
+                            </div>
+                            <div class="info-col border-x">
+                                <small>NRP / ID</small>
+                                <p>{{ localServing.identity_number }}</p>
+                            </div>
+                            <div class="info-col">
+                                <small>Perihal</small>
+                                <p>{{ localServing.purpose }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="empty-serving">
+                        <div class="ticket-placeholder">---</div>
+                        <span class="status-badge idle">MENUNGGU</span>
+                        <p class="text-sm text-gray-400 mt-2">Silakan panggil antrian berikutnya</p>
+                    </div>
+
+                    <div class="control-buttons">
+                        <button class="btn-ctrl success" :disabled="!localServing || isLoading" @click="complete">
+                            ✔ Selesai
+                        </button>
+                        <button class="btn-ctrl warning" :disabled="!localServing || isLoading" @click="recall">
+                            🔔 Panggil Ulang
+                        </button>
+                        <button class="btn-ctrl primary" :disabled="isLoading" @click="callNext">
+                            <span v-if="isLoading">⏳ Memproses...</span>
+                            <span v-else>▶ Panggil Berikutnya</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel list-panel">
+                <div class="panel-title text-left pl-4 border-b flex justify-between pr-4">
+                    <span>👤 Antrian Menunggu</span>
+                    <span class="bg-orange-100 text-orange-600 px-2 rounded text-xs py-1">{{ waitingList.length }}</span>
+                </div>
+
+                <div class="list-scroll">
+                    <div v-if="waitingList.length > 0" class="queue-list">
+                        <div v-for="(item, index) in waitingList" :key="item.id" class="queue-card" :class="{'top-card': index === 0}">
+                            <div class="q-header">
+                                <span class="q-number">{{ item.ticket_code }}</span>
+                                <span class="q-service">{{ item.purpose || 'Umum' }}</span>
+                            </div>
+                            <div class="q-body">
+                                <p class="q-name">{{ item.guest_name }}</p>
+                                <p class="q-id">ID: {{ item.identity_number }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="empty-state">
+                        <div class="text-4xl mb-2">☕</div>
+                        <p>Tidak ada antrian menunggu</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
     </div>
-
-    <footer class="news-footer">
-      <div class="ticker">
-        <div class="ticker-track">
-          <span v-for="i in 5" :key="i">
-            PT ASABRI (Persero) | Melayani dengan Sepenuh Hati • Jam Layanan: Senin–Jumat 08.00–15.00 •
-          </span>
-        </div>
-      </div>
-    </footer>
-
-  </section>
+  </DisplayLayout>
 </template>
 
 <style src="/public/css/staff.css"></style>
