@@ -1,9 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { ref, onMounted, onUnmounted, computed } from 'vue';
 import axios from 'axios';
 import { callQueue } from '@/utils/queueAudio';
-import DisplayLayout from '@/Layouts/DisplayLayout.vue'; // Import Layout Baru
+import DisplayLayout from '@/Layouts/DisplayLayout.vue'; // Import Layout
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
@@ -14,7 +13,6 @@ const isIndonesiaRayaPlaying = ref(false);
 // --- STATE UTAMA ---
 const activeQueues = ref([]);
 const processedState = ref(new Map()); 
-const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
 
 // --- STATE DINAMIS LAYAR UTAMA ---
@@ -24,54 +22,69 @@ const currentDisplayQueue = ref(null);
 const pendingAnnouncements = ref([]); 
 const isSpeaking = ref(false); 
 
-
-// --- STATE DINAMIS LAYAR UTAMA ---
-const currentDisplayQueue = ref(null); 
-
-// --- STATE ANTRIAN LOKAL ---
-const pendingAnnouncements = ref([]); 
-const isSpeaking = ref(false); 
-
 let isFirstLoad = true;
-let interval = null;
+let dataInterval = null;
+let timeInterval = null;
 
-// --- YOUTUBE API LOGIC (TETAP SAMA) ---
+// --- YOUTUBE API LOGIC ---
 const initPlayer = () => {
-    if (player.value) { try { player.value.destroy(); } catch(e) {} }
+    if (player.value && typeof player.value.destroy === 'function') { 
+        try { player.value.destroy(); } catch(e) { console.error(e); } 
+    }
+    
     player.value = new YT.Player('youtube-player', {
         videoId: videoId.value,
-        playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'loop': 1, 'playlist': videoId.value, 'playsinline': 1, 'origin': window.location.origin },
+        playerVars: { 
+            'autoplay': 1, 
+            'controls': 0, 
+            'rel': 0, 
+            'loop': 1, 
+            'playlist': videoId.value, 
+            'playsinline': 1, 
+            'origin': window.location.origin 
+        },
         events: {
             'onReady': (event) => {
                 event.target.setVolume(100);
                 event.target.mute();
-                if(isAudioEnabled.value) { event.target.unMute(); event.target.playVideo(); }
+                if(isAudioEnabled.value) { 
+                    event.target.unMute(); 
+                    event.target.playVideo(); 
+                }
+            },
+            'onStateChange': (event) => {
+                // Jika video utama selesai, putar lagi (loop manual jika playlist gagal)
+                if (event.data === YT.PlayerState.ENDED && !isIndonesiaRayaPlaying.value) {
+                    player.value.playVideo();
+                }
             }
         }
     });
 };
 
 const loadYoutubeAPI = () => {
-    if (window.YT && window.YT.Player) { initPlayer(); } else {
+    if (window.YT && window.YT.Player) { 
+        initPlayer(); 
+    } else {
         window.onYouTubeIframeAPIReady = initPlayer;
-        const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
-        if (!existingScript) {
+        if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
             const tag = document.createElement('script');
             tag.src = "https://www.youtube.com/iframe_api";
-            document.getElementsByTagName('script')[0].parentNode.insertBefore(tag, document.getElementsByTagName('script')[0]);
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
         }
     }
 };
 
-// --- LOGIKA INDONESIA RAYA (TETAP SAMA) ---
+// --- LOGIKA INDONESIA RAYA ---
 const checkIndonesiaRayaTime = () => {
     const now = new Date();
-    // ... Logika cek waktu sama persis ...
-    const day = now.getDay(); 
+    const day = now.getDay(); // 1-5 (Senin-Jumat)
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const seconds = now.getSeconds();
 
+    // Cek jam 10:00:00 tepat
     if (day >= 1 && day <= 5 && hours === 10 && minutes === 0 && seconds === 0) {
         if (!isIndonesiaRayaPlaying.value && player.value && typeof player.value.loadVideoById === 'function') {
             isIndonesiaRayaPlaying.value = true;
@@ -79,6 +92,8 @@ const checkIndonesiaRayaTime = () => {
             player.value.unMute();
             player.value.setVolume(100);
             player.value.playVideo();
+            
+            // Durasi Indonesia Raya ~2 menit 15 detik
             setTimeout(() => {
                 player.value.loadVideoById(videoId.value);
                 isIndonesiaRayaPlaying.value = false;
@@ -87,16 +102,16 @@ const checkIndonesiaRayaTime = () => {
     }
 };
 
-// --- PROCESSOR ANTRIAN (TETAP SAMA) ---
+// --- PROCESSOR ANTRIAN ---
 const playNextAnnouncement = () => {
-    // ... logic sama ...
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
-        if (player.value) player.value.setVolume(100);
+        if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(100);
         return;
     }
+
     isSpeaking.value = true;
-    if (player.value) player.value.setVolume(10); 
+    if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(10); 
 
     const queueData = pendingAnnouncements.value.shift();
     currentDisplayQueue.value = queueData.originalData;
@@ -106,12 +121,12 @@ const playNextAnnouncement = () => {
     });
 };
 
-// --- FETCH DATA (TETAP SAMA) ---
+// --- FETCH DATA ---
 const fetchData = async () => {
-    // ... logic sama ...
     try {
         const { data } = await axios.get('/display/data');
         activeQueues.value = data;
+
         if (!data.length || !isAudioEnabled.value) return;
 
         if (isFirstLoad) {
@@ -120,12 +135,9 @@ const fetchData = async () => {
             return;
         }
         
-        // ... (sisanya sama persis dengan kode awal Anda)
         const newCandidates = [];
         data.forEach(queue => {
             const lastTime = processedState.value.get(queue.id);
-            if ((!lastTime || queue.updated_at > lastTime) && queue.status === 'called') {
-                newCandidates.push(queue);
             if ((!lastTime || queue.updated_at > lastTime) && queue.status === 'called') {
                 newCandidates.push(queue);
                 processedState.value.set(queue.id, queue.updated_at);
@@ -139,15 +151,22 @@ const fetchData = async () => {
                 const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
                 const numberOnly = rawCode.replace(/\D/g, ''); 
                 const cleanedNumber = parseInt(numberOnly, 10).toString();
+                
                 pendingAnnouncements.value.push({
-                    announcement: { prefix, number: cleanedNumber, counter: queue.counter ? queue.counter.name.replace(/\D/g, '') : '1' },
+                    announcement: { 
+                        prefix, 
+                        number: cleanedNumber, 
+                        counter: queue.counter ? queue.counter.name.replace(/\D/g, '') : '1' 
+                    },
                     originalData: queue 
                 });
             });
 
             if (!isSpeaking.value) playNextAnnouncement();
         }
-    } catch (e) { console.error("Gagal koneksi server", e); }
+    } catch (e) { 
+        console.error("Gagal koneksi server", e); 
+    }
 };
 
 // --- UTILS ---
@@ -155,35 +174,37 @@ const enableAudio = () => {
     isAudioEnabled.value = true;
     const unlock = new Audio();
     unlock.play().catch(() => {});
+    
     if (player.value && typeof player.value.unMute === 'function') {
-        player.value.unMute(); player.value.setVolume(100); player.value.playVideo();
+        player.value.unMute(); 
+        player.value.setVolume(100); 
+        player.value.playVideo();
     }
     document.documentElement.requestFullscreen().catch(() => {});
 };
 
 const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'waiting').slice(0, 3));
 
-// NOTE: Logika Jam (currentTime) SUDAH DIHAPUS karena pindah ke AppHeader.vue
-// Tapi kita perlu menjalankan checkIndonesiaRayaTime secara interval di sini
 onMounted(() => {
     loadYoutubeAPI();
-    loadYoutubeAPI();
     fetchData();
-    interval = setInterval(fetchData, 3000);
-    // Kita tetap butuh interval detik untuk cek Indonesia Raya
-    setInterval(checkIndonesiaRayaTime, 1000); 
+    dataInterval = setInterval(fetchData, 3000);
+    timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 });
 
 onUnmounted(() => {
-    clearInterval(interval);
+    clearInterval(dataInterval);
+    clearInterval(timeInterval);
 });
 </script>
 
 <template>
     <DisplayLayout title="Display Antrian ASABRI">
         
-        <div class="w-full h-full flex">
-             <div class="w-[55%] flex flex-col p-6 gap-6 justify-center">
+        <div class="w-full h-full flex bg-gray-50">
+            
+            <div class="w-[55%] flex flex-col p-6 gap-6 justify-center">
+                
                 <div class="bg-[#ffc107] rounded-[30px] border-[12px] border-[#00569c] shadow-2xl p-8 relative flex items-center justify-between h-[400px]">
                     <div class="flex flex-col items-start pl-4">
                         <h2 class="text-2xl font-black text-[#00569c] uppercase tracking-widest mb-2">NOMOR ANTRIAN</h2>
@@ -208,18 +229,18 @@ onUnmounted(() => {
                         ANTRIAN BERIKUTNYA
                     </div>
                     <div class="flex-1 p-6 flex gap-6 items-center justify-center">
-                        <div v-for="queue in nextQueues" :key="queue.id" 
-                             class="flex-1 bg-white border-2 border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center shadow-md transform hover:scale-105 transition-transform">
-                            <div class="text-6xl font-black text-[#00569c] font-mono mb-1">
-                                {{ queue.ticket_code }}
+                        <template v-if="nextQueues.length > 0">
+                            <div v-for="queue in nextQueues" :key="queue.id" 
+                                 class="flex-1 bg-white border-2 border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center shadow-md transform hover:scale-105 transition-transform">
+                                <div class="text-6xl font-black text-[#00569c] font-mono mb-1">
+                                    {{ queue.ticket_code }}
+                                </div>
+                                <div class="text-sm font-bold text-gray-500 uppercase">
+                                    {{ queue.counter?.name || '-' }}
+                                </div>
                             </div>
-                            <div class="text-sm font-bold text-gray-500 uppercase">
-                                {{ queue.counter?.name || '-' }}
-                            </div>
-                        </div>
-                        <div v-if="nextQueues.length === 0" class="text-gray-400 italic font-bold">
-                            Belum ada antrian menunggu
-                        <div v-if="nextQueues.length === 0" class="text-gray-400 italic font-bold">
+                        </template>
+                        <div v-else class="text-gray-400 italic font-bold">
                             Belum ada antrian menunggu
                         </div>
                     </div>
@@ -238,20 +259,11 @@ onUnmounted(() => {
             <div class="text-center">
                 <div class="mb-10 transform scale-125">
                     <div class="bg-white p-6 rounded-[30px] inline-block mb-4 shadow-2xl border-4 border-yellow-400">
-                        <img src="/images/logo-asabri.png" alt="Logo" class="h-24 w-auto object-contain" onError="this.style.display='none'">
+                        <img src="/images/logo-asabri.png" alt="Logo" class="h-24 w-auto object-contain" @error="(e) => e.target.style.display='none'">
                     </div>
                     <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
                     <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
-                    <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
-                    <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
                 </div>
-                <button @click="enableAudio" 
-                    class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
-                    <svg class="w-10 h-10 mr-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
-                    </svg>
-                    <span>MULAI DISPLAY TV</span>
-                </button>
                 <button @click="enableAudio" 
                     class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
                     <svg class="w-10 h-10 mr-4" fill="currentColor" viewBox="0 0 20 20">
@@ -265,8 +277,6 @@ onUnmounted(() => {
     </DisplayLayout>
 </template>
 
-<style scoped>
-.font-mono { font-family: 'Courier New', Courier, monospace; }
 <style scoped>
 .font-mono { font-family: 'Courier New', Courier, monospace; }
 </style>
