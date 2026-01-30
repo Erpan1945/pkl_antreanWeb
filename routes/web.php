@@ -81,7 +81,6 @@ Route::middleware(['auth'])->group(function () {
     // Saya taruh di luar grup admin supaya staff bisa download laporan juga
     Route::get('/admin/export', [AdminDashboardController::class, 'export'])->name('admin.export');
 
-
     /*
     |--------------------------------------------------------------------------
     | 3. ZONA KHUSUS ADMIN (ROLE: ADMIN)
@@ -101,75 +100,4 @@ Route::middleware(['auth'])->group(function () {
 
 require __DIR__.'/auth.php';
 
-/* =========================
-   DASHBOARD STAFF (INERTIA)
-========================= */
-Route::get('/staff', function () {
 
-    return Inertia::render('Staff/Dashboard', [
-        'stats' => [
-            'total'    => Queue::count(),
-            'finished' => Queue::where('status', 'selesai')->count(),
-        ],
-        'waitingCount'   => Queue::where('status', 'menunggu')->count(),
-        'waitingList'    => Queue::where('status', 'menunggu')
-                                ->orderBy('created_at')
-                                ->get(),
-        'currentServing' => Queue::where('status', 'dipanggil')->first(),
-        'counter'        => [
-            'id' => 1
-        ]
-    ]);
-})->name('staff.dashboard');
-
-/* =========================
-   ACTIONS
-========================= */
-
-// PANGGIL BERIKUTNYA
-Route::post('/staff/next', function () {
-
-    $next = Queue::where('status', 'menunggu')
-        ->orderBy('created_at')
-        ->first();
-
-    if ($next) {
-        $next->update(['status' => 'dipanggil']);
-    }
-
-    return response()->json(['success' => true]);
-});
-
-// SELESAI
-Route::post('/staff/complete', function () {
-    request()->validate([
-        'queue_id' => 'required'
-    ]);
-
-    Queue::where('id', request('queue_id'))
-        ->update(['status' => 'selesai']);
-
-    return response()->json(['success' => true]);
-});
-
-// PANGGIL ULANG (dummy)
-Route::post('/staff/recall', function () {
-    return response()->json(['success' => true]);
-});
-
-/* =========================
-   API POLLING REALTIME
-========================= */
-Route::get('/staff/stats/{counter}', function () {
-    return response()->json([
-        'currentServing' => Queue::where('status', 'dipanggil')->first(),
-        'waitingCount'   => Queue::where('status', 'menunggu')->count(),
-        'waitingList'    => Queue::where('status', 'menunggu')
-                                ->orderBy('created_at')
-                                ->get(),
-        'stats' => [
-            'total'    => Queue::count(),
-            'finished' => Queue::where('status', 'selesai')->count(),
-        ]
-    ]);
-});

@@ -3,18 +3,20 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import axios from 'axios'
 
+// Menerima data dari StaffController::dashboard()
 const props = defineProps({
-  counter: Object,
-  currentServing: Object,
-  waitingCount: Number,
-  waitingList: Array,
-  stats: Object
+  counter: Object,        // Data Loket (ID, Nama)
+  currentServing: Object, // Data Antrian yg sedang dipanggil
+  waitingCount: Number,   // Jumlah sisa antrian
+  auth: Object            // Data User Login
 })
 
+// State Lokal untuk UI Realtime
 const localServing = ref(props.currentServing)
 const localWaiting = ref(props.waitingCount)
-const waitingList = ref(props.waitingList)
-const stats = ref(props.stats)
+// Tambahan: Stats Total & Selesai (Nanti diambil dari API getStats)
+const stats = ref({ total: 0, finished: 0 }) 
+const waitingList = ref([]) // Nanti diambil dari API jika perlu
 
 const clock = ref('00:00:00 WIB')
 let interval = null
@@ -27,17 +29,30 @@ const updateClock = () => {
   clock.value = wib.toLocaleTimeString('id-ID') + ' WIB'
 }
 
-// FETCH DATA REALTIME
+// FETCH DATA REALTIME (Polling ke StaffController::getStats)
 const fetchUpdates = async () => {
-  const res = await axios.get(`/staff/stats/${props.counter.id}`)
-  localServing.value = res.data.currentServing
-  localWaiting.value = res.data.waitingCount
-  waitingList.value = res.data.waitingList
-  stats.value = res.data.stats
+  try {
+    // Panggil Route: /staff/{counterId}/stats
+    const res = await axios.get(route('staff.stats', props.counter.id))
+    
+    // Update State Lokal dari Response Controller
+    localServing.value = res.data.currentServing
+    localWaiting.value = res.data.waitingCount
+    
+    // Note: StaffController::getStats Anda saat ini belum mengembalikan 'waitingList' & 'stats' lengkap.
+    // Jadi untuk sementara kita pakai data yang ada dulu, atau Anda bisa update Controller nanti.
+    // Jika controller sudah diupdate, bisa uncomment baris bawah:
+    // waitingList.value = res.data.waitingList || []
+    // stats.value = res.data.stats || { total: 0, finished: 0 }
+
+  } catch (error) {
+    console.error("Gagal update data:", error)
+  }
 }
 
 onMounted(() => {
   updateClock()
+  // Interval polling tiap 3 detik
   interval = setInterval(() => {
     updateClock()
     fetchUpdates()
@@ -46,23 +61,36 @@ onMounted(() => {
 
 onUnmounted(() => clearInterval(interval))
 
-// ACTIONS
+// --- ACTIONS (Terhubung ke Route StaffController) ---
+
 const callNext = () => {
-  router.post('/staff/next', {}, {
+  // Post ke: /staff/call-next
+  router.post(route('staff.callNext'), {
+    counter_id: props.counter.id // Wajib kirim ID Loket
+  }, {
+    preserveScroll: true,
     onSuccess: () => fetchUpdates()
   })
 }
 
 const recall = () => {
-  fetchUpdates()
+  // Post ke: /staff/recall
+  router.post(route('staff.recall'), {
+    counter_id: props.counter.id // Wajib kirim ID Loket
+  }, {
+    preserveScroll: true,
+    onSuccess: () => fetchUpdates()
+  })
 }
 
 const complete = () => {
   if (!localServing.value) return
 
-  router.post('/staff/complete', {
-    queue_id: localServing.value.id
+  // Post ke: /staff/complete
+  router.post(route('staff.complete'), {
+    queue_id: localServing.value.id // Wajib kirim ID Antrian
   }, {
+    preserveScroll: true,
     onSuccess: () => {
       localServing.value = null
       fetchUpdates()
@@ -72,17 +100,15 @@ const complete = () => {
 </script>
 
 <template>
-  <Head title="Admin Loket Antrean - PT ASABRI">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-    rel="stylesheet"
-  >
-</Head>
+  <Head :title="`Loket ${counter.name} - Admin Antrean`">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    >
+  </Head>
 
-
-  <!-- HEADER -->
   <header class="topbar">
     <div class="brand">
       <div class="logo-box">
@@ -97,24 +123,22 @@ const complete = () => {
     <div class="clock">{{ clock }}</div>
   </header>
 
-  <!-- GREETING -->
   <section class="greeting">
-    <h2>Halo, Petugas Loket</h2>
-    <p>Selamat bekerja 👋</p>
+    <h2>Halo, {{ auth.user.name }}</h2>
+    <p>Bertugas di: <strong>{{ counter.name }}</strong> 👋</p>
     <span class="badge">Sisa Antrian: {{ localWaiting }}</span>
   </section>
 
-  <!-- CARDS -->
   <section class="cards">
     <div class="card blue">
       <div class="card-icon blue">👥</div>
-      <h3>{{ stats.total }}</h3>
+      <h3>{{ stats.total || '-' }}</h3>
       <p>Total Antrian</p>
     </div>
 
     <div class="card green">
       <div class="card-icon green">📈</div>
-      <h3>{{ stats.finished }}</h3>
+      <h3>{{ stats.finished || '-' }}</h3>
       <p>Selesai</p>
     </div>
 
@@ -131,9 +155,7 @@ const complete = () => {
     </div>
   </section>
 
-  <!-- MAIN -->
   <section class="main">
-    <!-- CURRENT -->
     <div class="current">
       <h4>SEDANG MELAYANI</h4>
 
@@ -142,7 +164,7 @@ const complete = () => {
       </div>
 
       <span class="status">
-        Status: {{ localServing ? localServing.status.toUpperCase() : '-' }}
+        Status: {{ localServing ? localServing.status.toUpperCase() : 'MENUNGGU' }}
       </span>
 
       <div class="info">
@@ -162,15 +184,14 @@ const complete = () => {
 
       <div class="actions">
         <button
-  class="btn success"
-  :disabled="!localServing"
-  @click="complete"
->
-  ✔ Selesai
-</button>
+          class="btn success"
+          :disabled="!localServing"
+          @click="complete"
+        >
+          ✔ Selesai
+        </button>
 
-
-        <button class="btn warning" @click="recall">
+        <button class="btn warning" :disabled="!localServing" @click="recall">
           🔔 Panggil Ulang
         </button>
 
@@ -180,34 +201,37 @@ const complete = () => {
       </div>
     </div>
 
-    <!-- WAITING -->
     <div class="waiting">
       <h4>ANTRIAN MENUNGGU</h4>
-
-      <div
-        v-for="item in waitingList"
-        :key="item.id"
-        class="wait-item"
-      >
-        <strong>{{ item.ticket_code }}</strong>
-        <p>{{ item.guest_name }}</p>
-        <small>{{ item.purpose }}</small>
+      
+      <div v-if="waitingList.length > 0">
+          <div
+            v-for="item in waitingList"
+            :key="item.id"
+            class="wait-item"
+          >
+            <strong>{{ item.ticket_code }}</strong>
+            <p>{{ item.guest_name }}</p>
+            <small>{{ item.purpose }}</small>
+          </div>
       </div>
 
-      <p v-if="waitingList.length === 0" style="text-align:center;color:#777;">
-        Tidak ada antrian menunggu
+      <p v-else style="text-align:center;color:#777; padding: 20px;">
+        (List antrian realtime akan muncul jika controller mengirim data 'waitingList')
+        <br>
+        <small>Total Menunggu: {{ localWaiting }}</small>
       </p>
     </div>
-    <!-- FOOTER -->
-<footer class="news-footer">
-  <div class="ticker">
-    <div class="ticker-track">
-      <span v-for="i in 5" :key="i">
-        PT ASABRI (Persero) | Melayani dengan Sepenuh Hati • Jam Layanan: Senin–Jumat 08.00–15.00 •
-      </span>
-    </div>
-  </div>
-</footer>
+
+    <footer class="news-footer">
+      <div class="ticker">
+        <div class="ticker-track">
+          <span v-for="i in 5" :key="i">
+            PT ASABRI (Persero) | Melayani dengan Sepenuh Hati • Jam Layanan: Senin–Jumat 08.00–15.00 •
+          </span>
+        </div>
+      </div>
+    </footer>
 
   </section>
 </template>
