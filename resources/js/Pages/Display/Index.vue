@@ -1,97 +1,164 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import axios from 'axios';
-// Import helper yang baru kita buat
 import { callQueue } from '@/utils/queueAudio';
+import DisplayLayout from '@/Layouts/DisplayLayout.vue'; // Import Layout Baru
 
+// --- 1. CONFIG YOUTUBE PLAYER ---
+const player = ref(null);
+const videoId = ref("vHZhFmkINI8"); 
+const indonesiaRayaId = "h_7SSTIn88E"; 
+const isIndonesiaRayaPlaying = ref(false);
+
+// --- STATE UTAMA ---
 const activeQueues = ref([]);
-const processedState = ref(new Map()); // Menyimpan state terakhir setiap ID: Map<id, updated_at>
+const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
-let isFirstLoad = true;
 
+// --- STATE DINAMIS LAYAR UTAMA ---
+const currentDisplayQueue = ref(null); 
+
+// --- STATE ANTRIAN LOKAL ---
+const pendingAnnouncements = ref([]); 
+const isSpeaking = ref(false); 
+
+let isFirstLoad = true;
 let interval = null;
 
-const processAudio = (queue) => {
-    // --- PERSIAPAN DATA UNTUK AUDIO ---
-    // Asumsi format: "A-001"
-    const rawCode = queue.ticket_code; 
-    
-    // Ambil Huruf Depan (A)
-    const prefix = rawCode.charAt(0); 
-    
-    // Ambil Angka Saja (001) - Buang tanda strip/huruf
-    const numberOnly = rawCode.replace(/\D/g, ''); 
-
-    // Panggil Fungsi Audio Helper
-    callQueue({
-        prefix: prefix,       // "A"
-        number: numberOnly,   // "001"
-        counter: queue.counter ? queue.counter.name.replace(/\D/g, '') : '1' // Ambil angka loketnya saja
+// --- YOUTUBE API LOGIC (TETAP SAMA) ---
+const initPlayer = () => {
+    if (player.value) { try { player.value.destroy(); } catch(e) {} }
+    player.value = new YT.Player('youtube-player', {
+        videoId: videoId.value,
+        playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'loop': 1, 'playlist': videoId.value, 'playsinline': 1, 'origin': window.location.origin },
+        events: {
+            'onReady': (event) => {
+                event.target.setVolume(100);
+                event.target.mute();
+                if(isAudioEnabled.value) { event.target.unMute(); event.target.playVideo(); }
+            }
+        }
     });
 };
 
+const loadYoutubeAPI = () => {
+    if (window.YT && window.YT.Player) { initPlayer(); } else {
+        window.onYouTubeIframeAPIReady = initPlayer;
+        const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+        if (!existingScript) {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            document.getElementsByTagName('script')[0].parentNode.insertBefore(tag, document.getElementsByTagName('script')[0]);
+        }
+    }
+};
+
+// --- LOGIKA INDONESIA RAYA (TETAP SAMA) ---
+const checkIndonesiaRayaTime = () => {
+    const now = new Date();
+    // ... Logika cek waktu sama persis ...
+    const day = now.getDay(); 
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+
+    if (day >= 1 && day <= 5 && hours === 10 && minutes === 0 && seconds === 0) {
+        if (!isIndonesiaRayaPlaying.value && player.value && typeof player.value.loadVideoById === 'function') {
+            isIndonesiaRayaPlaying.value = true;
+            player.value.loadVideoById(indonesiaRayaId);
+            player.value.unMute();
+            player.value.setVolume(100);
+            player.value.playVideo();
+            setTimeout(() => {
+                player.value.loadVideoById(videoId.value);
+                isIndonesiaRayaPlaying.value = false;
+            }, 135000);
+        }
+    }
+};
+
+// --- PROCESSOR ANTRIAN (TETAP SAMA) ---
+const playNextAnnouncement = () => {
+    // ... logic sama ...
+    if (pendingAnnouncements.value.length === 0) {
+        isSpeaking.value = false;
+        if (player.value) player.value.setVolume(100);
+        return;
+    }
+    isSpeaking.value = true;
+    if (player.value) player.value.setVolume(10); 
+
+    const queueData = pendingAnnouncements.value.shift();
+    currentDisplayQueue.value = queueData.originalData;
+
+    callQueue(queueData.announcement, () => {
+        playNextAnnouncement();
+    });
+};
+
+// --- FETCH DATA (TETAP SAMA) ---
 const fetchData = async () => {
+    // ... logic sama ...
     try {
         const { data } = await axios.get('/display/data');
         activeQueues.value = data;
-
-        // Jangan proses jika data kosong atau audio belum diizinkan user
         if (!data.length || !isAudioEnabled.value) return;
 
-        // --- LOGIKA BARU: MULTI-QUEUE HANDLING ---
-        
-        // 1. Jika ini load pertama, tandai semua sebagai "sudah diproses"
-        // agar tidak bunyi semua sekaligus. Bunyikan HANYA yang paling baru (index 0).
         if (isFirstLoad) {
             data.forEach(q => processedState.value.set(q.id, q.updated_at));
-            
-            // Bunyikan yang paling atas (terbaru) sebagai tanda sistem aktif
-            processAudio(data[0]);
-            
             isFirstLoad = false;
             return;
         }
-
-        // 2. Filter antrian yang BARU atau DI-UPDATE (Recall)
-        const candidates = [];
+        
+        // ... (sisanya sama persis dengan kode awal Anda)
+        const newCandidates = [];
         data.forEach(queue => {
             const lastTime = processedState.value.get(queue.id);
-            
-            // Jika ID belum ada, atau updated_at lebih baru dari yang tersimpan
-            // Perbandingan string tanggal ISO8601 aman secara leksikal
-            if (!lastTime || queue.updated_at > lastTime) {
-                candidates.push(queue);
-                // Update map segera agar tidak diproses ulang di loop berikutnya (jika ada overlap)
+            if ((!lastTime || queue.updated_at > lastTime) && queue.status === 'called') {
+                newCandidates.push(queue);
                 processedState.value.set(queue.id, queue.updated_at);
             }
         });
 
-        // 3. Jika ada kandidat, urutkan berdasarkan WAKTU TERLAMA ke TERBARU
-        // Supaya yang menekan duluan, dipanggil duluan.
-        if (candidates.length > 0) {
-            candidates.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
-
-            // 4. Masukkan ke antrian audio
-            candidates.forEach(queue => {
-                processAudio(queue);
+        if (newCandidates.length > 0) {
+            newCandidates.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+            newCandidates.forEach(queue => {
+                const rawCode = queue.ticket_code || queue.number || '000'; 
+                const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
+                const numberOnly = rawCode.replace(/\D/g, ''); 
+                const cleanedNumber = parseInt(numberOnly, 10).toString();
+                pendingAnnouncements.value.push({
+                    announcement: { prefix, number: cleanedNumber, counter: queue.counter ? queue.counter.name.replace(/\D/g, '') : '1' },
+                    originalData: queue 
+                });
             });
-        }
 
-    } catch (e) {
-        console.error("Gagal mengambil data antrian:", e);
-    }
+            if (!isSpeaking.value) playNextAnnouncement();
+        }
+    } catch (e) { console.error("Gagal koneksi server", e); }
 };
 
+// --- UTILS ---
 const enableAudio = () => {
     isAudioEnabled.value = true;
-    // Pancing audio dummy agar browser mengizinkan autoplay selanjutnya
     const unlock = new Audio();
     unlock.play().catch(() => {});
+    if (player.value && typeof player.value.unMute === 'function') {
+        player.value.unMute(); player.value.setVolume(100); player.value.playVideo();
+    }
+    document.documentElement.requestFullscreen().catch(() => {});
 };
 
+const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'waiting').slice(0, 3));
+
+// NOTE: Logika Jam (currentTime) SUDAH DIHAPUS karena pindah ke AppHeader.vue
+// Tapi kita perlu menjalankan checkIndonesiaRayaTime secara interval di sini
 onMounted(() => {
+    loadYoutubeAPI();
     fetchData();
     interval = setInterval(fetchData, 3000);
+    // Kita tetap butuh interval detik untuk cek Indonesia Raya
+    setInterval(checkIndonesiaRayaTime, 1000); 
 });
 
 onUnmounted(() => {
@@ -100,104 +167,80 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-900 text-white overflow-hidden font-sans">
+    <DisplayLayout title="Display Antrian ASABRI">
         
-        <div v-if="!isAudioEnabled" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center flex-col">
-            <h1 class="text-4xl font-bold mb-4">Siap Menampilkan Display</h1>
-            <p class="mb-8 text-gray-400">Klik tombol di bawah agar suara panggilan bisa berbunyi</p>
-            <button @click="enableAudio" class="px-8 py-4 bg-green-600 rounded-full text-2xl font-bold hover:bg-green-500 transition shadow-[0_0_30px_rgba(0,255,0,0.5)]">
-                🔊 MULAI SISTEM LAYAR
-            </button>
-        </div>
-
-        <div class="h-20 bg-blue-800 flex items-center justify-between px-10 shadow-lg relative z-10">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-800 font-bold text-xl">
-                    LOGO
-                </div>
-                <h1 class="text-2xl font-bold tracking-wider">PT ASABRI</h1>
-            </div>
-            
-            <div class="flex flex-col items-end">
-                <div class="text-xl font-mono uppercase">
-                    {{ new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
-                </div>
-            </div>
-        </div>
-
-        <div class="flex h-[calc(100vh-80px)]">
-            
-            <div class="w-7/12 bg-gray-800 p-6 flex flex-col gap-4 border-r border-gray-700">
-                <div class="flex justify-between text-gray-400 px-4 uppercase text-sm tracking-widest mb-2">
-                    <span>Nomor Antrian</span>
-                    <span>Tujuan Loket</span>
-                </div>
-
-                <transition-group name="list" tag="div" class="flex flex-col gap-4">
-                    <div 
-                        v-for="(queue, index) in activeQueues" 
-                        :key="queue.id"
-                        class="relative bg-white text-gray-900 rounded-2xl p-6 flex items-center justify-between shadow-lg transform transition-all duration-500"
-                        :class="{'scale-105 ring-4 ring-yellow-400 z-10': index === 0, 'opacity-70': index > 0}"
-                    >
-                        <div v-if="index === 0" class="absolute -top-3 -right-3 bg-red-600 text-white px-4 py-1 rounded-full text-xs font-bold shadow animate-pulse">
-                            SEDANG DIPANGGIL
-                        </div>
-
-                        <div class="flex flex-col">
-                            <span class="text-sm text-gray-500 font-bold uppercase">{{ queue.service.name }}</span>
-                            <span class="text-7xl font-black tracking-tighter">{{ queue.ticket_code }}</span>
-                        </div>
-
-                        <div class="text-6xl text-blue-600">➝</div>
-
-                        <div class="text-right">
-                            <span class="text-sm text-gray-500 font-bold uppercase">Silakan Menuju</span>
-                            <span class="block text-5xl font-bold text-blue-800">{{ queue.counter.name }}</span>
+        <div class="w-full h-full flex">
+             <div class="w-[55%] flex flex-col p-6 gap-6 justify-center">
+                <div class="bg-[#ffc107] rounded-[30px] border-[12px] border-[#00569c] shadow-2xl p-8 relative flex items-center justify-between h-[400px]">
+                    <div class="flex flex-col items-start pl-4">
+                        <h2 class="text-2xl font-black text-[#00569c] uppercase tracking-widest mb-2">NOMOR ANTRIAN</h2>
+                        <div class="text-[12rem] leading-none font-black text-[#00569c] font-mono tracking-tighter drop-shadow-md">
+                            {{ currentDisplayQueue ? currentDisplayQueue.ticket_code : 'A-000' }}
                         </div>
                     </div>
-                </transition-group>
 
-                <div v-if="activeQueues.length === 0" class="flex-1 flex items-center justify-center text-gray-500 flex-col opacity-50">
-                    <div class="text-6xl mb-4">☕</div>
-                    <p class="text-2xl">Menunggu antrian dipanggil...</p>
+                    <div class="flex flex-col items-center pr-4">
+                        <span class="text-[#00569c] text-2xl font-black uppercase mb-3">MENUJU</span>
+                        <div class="bg-[#00569c] text-white p-8 rounded-[25px] flex flex-col items-center min-w-[200px] shadow-xl border-4 border-white/20">
+                            <span class="text-3xl font-bold tracking-widest uppercase mb-1">LOKET</span>
+                            <span class="text-8xl font-black leading-none">
+                                {{ currentDisplayQueue ? currentDisplayQueue.counter?.name.replace(/\D/g, '') : '-' }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="w-5/12 bg-black relative flex items-center justify-center overflow-hidden">
-                <!-- <iframe 
-                    class="w-full h-full absolute inset-0 object-cover opacity-80"
-                    src="" 
-                    title="Company Profile" 
-                    frameborder="0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                    allowfullscreen>
-                </iframe> -->
-                (Area ini bisa diisi Video Profil Instansi, Slide Iklan, atau Pengumuman)
-                
-                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black opacity-60"></div>
-                
-                <div class="absolute bottom-0 w-full bg-blue-900/90 py-4 overflow-hidden whitespace-nowrap z-20 backdrop-blur-md border-t border-blue-500">
-                    <div class="animate-marquee inline-block text-white font-bold text-xl tracking-wide">
-                        Selamat Datang di Pelayanan Terpadu. Budayakan antri untuk kenyamanan bersama. Jam operasional: 08.00 - 15.00 WIB.
+                <div class="bg-white rounded-[25px] shadow-xl border-2 border-gray-100 flex flex-col overflow-hidden h-[240px]">
+                    <div class="bg-[#00569c] text-white py-3 px-6 text-center font-black uppercase tracking-[0.2em] text-sm">
+                        ANTRIAN BERIKUTNYA
+                    </div>
+                    <div class="flex-1 p-6 flex gap-6 items-center justify-center">
+                        <div v-for="queue in nextQueues" :key="queue.id" 
+                             class="flex-1 bg-white border-2 border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center shadow-md transform hover:scale-105 transition-transform">
+                            <div class="text-6xl font-black text-[#00569c] font-mono mb-1">
+                                {{ queue.ticket_code }}
+                            </div>
+                            <div class="text-sm font-bold text-gray-500 uppercase">
+                                {{ queue.counter?.name || '-' }}
+                            </div>
+                        </div>
+                        <div v-if="nextQueues.length === 0" class="text-gray-400 italic font-bold">
+                            Belum ada antrian menunggu
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <div class="w-[45%] p-6 pl-0 flex items-center">
+                <div class="w-full h-full bg-black rounded-[30px] overflow-hidden shadow-2xl border-4 border-[#ffc107] relative">
+                    <div id="youtube-player" class="w-full h-full scale-[1.3] pointer-events-none"></div>
+                    <div class="absolute inset-0 bg-transparent z-10"></div>
+                </div>
+            </div>
         </div>
-    </div>
+
+        <div v-if="!isAudioEnabled" class="fixed inset-0 bg-[#00569c]/95 backdrop-blur-xl flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="mb-10 transform scale-125">
+                    <div class="bg-white p-6 rounded-[30px] inline-block mb-4 shadow-2xl border-4 border-yellow-400">
+                        <img src="/images/logo-asabri.png" alt="Logo" class="h-24 w-auto object-contain" onError="this.style.display='none'">
+                    </div>
+                    <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
+                    <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
+                </div>
+                <button @click="enableAudio" 
+                    class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
+                    <svg class="w-10 h-10 mr-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
+                    </svg>
+                    <span>MULAI DISPLAY TV</span>
+                </button>
+            </div>
+        </div>
+
+    </DisplayLayout>
 </template>
 
-<style>
-.list-enter-active, .list-leave-active { transition: all 0.5s ease; }
-.list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-30px); }
-
-@keyframes marquee {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
-}
-.animate-marquee {
-    animation: marquee 25s linear infinite;
-    padding-left: 100%;
-}
+<style scoped>
+.font-mono { font-family: 'Courier New', Courier, monospace; }
 </style>
