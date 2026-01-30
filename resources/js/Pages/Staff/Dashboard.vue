@@ -72,7 +72,15 @@ const complete = () => {
 </script>
 
 <template>
-  <Head title="Admin Loket Antrean - PT ASABRI" />
+  <Head title="Admin Loket Antrean - PT ASABRI">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  >
+</Head>
+
 
   <!-- HEADER -->
   <header class="topbar">
@@ -153,9 +161,14 @@ const complete = () => {
       </div>
 
       <div class="actions">
-        <button v-if="localServing" class="btn success" @click="complete">
-          ✔ Selesai
-        </button>
+        <button
+  class="btn success"
+  :disabled="!localServing"
+  @click="complete"
+>
+  ✔ Selesai
+</button>
+
 
         <button class="btn warning" @click="recall">
           🔔 Panggil Ulang
@@ -185,6 +198,17 @@ const complete = () => {
         Tidak ada antrian menunggu
       </p>
     </div>
+    <!-- FOOTER -->
+<footer class="news-footer">
+  <div class="ticker">
+    <div class="ticker-track">
+      <span v-for="i in 5" :key="i">
+        PT ASABRI (Persero) | Melayani dengan Sepenuh Hati • Jam Layanan: Senin–Jumat 08.00–15.00 •
+      </span>
+    </div>
+  </div>
+</footer>
+
   </section>
 </template>
 
