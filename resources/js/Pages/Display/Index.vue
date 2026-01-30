@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import axios from 'axios';
 import { callQueue } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; // Import Layout Baru
@@ -13,7 +14,16 @@ const isIndonesiaRayaPlaying = ref(false);
 // --- STATE UTAMA ---
 const activeQueues = ref([]);
 const processedState = ref(new Map()); 
+const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
+
+// --- STATE DINAMIS LAYAR UTAMA ---
+const currentDisplayQueue = ref(null); 
+
+// --- STATE ANTRIAN LOKAL ---
+const pendingAnnouncements = ref([]); 
+const isSpeaking = ref(false); 
+
 
 // --- STATE DINAMIS LAYAR UTAMA ---
 const currentDisplayQueue = ref(null); 
@@ -116,6 +126,8 @@ const fetchData = async () => {
             const lastTime = processedState.value.get(queue.id);
             if ((!lastTime || queue.updated_at > lastTime) && queue.status === 'called') {
                 newCandidates.push(queue);
+            if ((!lastTime || queue.updated_at > lastTime) && queue.status === 'called') {
+                newCandidates.push(queue);
                 processedState.value.set(queue.id, queue.updated_at);
             }
         });
@@ -154,6 +166,7 @@ const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'w
 // NOTE: Logika Jam (currentTime) SUDAH DIHAPUS karena pindah ke AppHeader.vue
 // Tapi kita perlu menjalankan checkIndonesiaRayaTime secara interval di sini
 onMounted(() => {
+    loadYoutubeAPI();
     loadYoutubeAPI();
     fetchData();
     interval = setInterval(fetchData, 3000);
@@ -206,6 +219,8 @@ onUnmounted(() => {
                         </div>
                         <div v-if="nextQueues.length === 0" class="text-gray-400 italic font-bold">
                             Belum ada antrian menunggu
+                        <div v-if="nextQueues.length === 0" class="text-gray-400 italic font-bold">
+                            Belum ada antrian menunggu
                         </div>
                     </div>
                 </div>
@@ -227,7 +242,16 @@ onUnmounted(() => {
                     </div>
                     <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
                     <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
+                    <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
+                    <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
                 </div>
+                <button @click="enableAudio" 
+                    class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
+                    <svg class="w-10 h-10 mr-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
+                    </svg>
+                    <span>MULAI DISPLAY TV</span>
+                </button>
                 <button @click="enableAudio" 
                     class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
                     <svg class="w-10 h-10 mr-4" fill="currentColor" viewBox="0 0 20 20">
@@ -241,6 +265,8 @@ onUnmounted(() => {
     </DisplayLayout>
 </template>
 
+<style scoped>
+.font-mono { font-family: 'Courier New', Courier, monospace; }
 <style scoped>
 .font-mono { font-family: 'Courier New', Courier, monospace; }
 </style>
