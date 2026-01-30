@@ -216,10 +216,8 @@ const complete = () => {
           </div>
       </div>
 
-      <p v-else style="text-align:center;color:#777; padding: 20px;">
-        (List antrian realtime akan muncul jika controller mengirim data 'waitingList')
-        <br>
-        <small>Total Menunggu: {{ localWaiting }}</small>
+      <p v-if="waitingList.length === 0" style="text-align:center;color:#777; margin-top: 20px; font-style: italic;">
+              Tidak ada antrian menunggu
       </p>
     </div>
 
