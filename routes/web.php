@@ -10,6 +10,7 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\DisplayController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Models\Queue;
 // use App\Http\Controllers\ProfileController; // (Dimatikan karena tidak dipakai)
 
 /*
@@ -80,7 +81,6 @@ Route::middleware(['auth'])->group(function () {
     // Saya taruh di luar grup admin supaya staff bisa download laporan juga
     Route::get('/admin/export', [AdminDashboardController::class, 'export'])->name('admin.export');
 
-
     /*
     |--------------------------------------------------------------------------
     | 3. ZONA KHUSUS ADMIN (ROLE: ADMIN)
@@ -99,3 +99,5 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+
