@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line, Bar } from 'vue-chartjs';
@@ -29,32 +29,51 @@ const props = defineProps({
     current_date: String
 });
 
-// --- CHART CONFIG ---
-const lineChartData = {
-    labels: props.chart_hourly.labels,
+// --- CHART CONFIG (COMPUTED AGAR REAKTIF) ---
+// Menggunakan computed properti memastikan grafik membaca data terbaru dari props
+const lineChartData = computed(() => ({
+    labels: props.chart_hourly.labels, // Data label (Jam) dari backend
     datasets: [{
         label: 'Antrian',
         borderColor: '#1e3a8a', 
         backgroundColor: 'rgba(30, 58, 138, 0.1)',
-        data: props.chart_hourly.data,
+        data: props.chart_hourly.data, // Data jumlah dari backend
         fill: true,
         tension: 0.4
     }]
-};
-const lineOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { borderDash: [2, 4] } } } };
-const barChartData = {
+}));
+
+const barChartData = computed(() => ({
     labels: props.chart_status.labels,
-    datasets: [{ label: 'Jumlah', backgroundColor: '#FBBF24', data: props.chart_status.data, borderRadius: 4 }]
+    datasets: [{
+        label: 'Jumlah',
+        backgroundColor: ['#FBBF24', '#3B82F6', '#10B981', '#EF4444'], // Kuning, Biru, Hijau, Merah
+        data: props.chart_status.data,
+        borderRadius: 4
+    }]
+}));
+
+const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false, // Matikan animasi saat update agar tidak glitch
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { borderDash: [2, 4] } } }
 };
-const barOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { borderDash: [2, 4] } } } };
 
 // --- AUTO REFRESH ---
 let interval = null;
 onMounted(() => {
+    // Refresh partial data setiap 5 detik
     interval = setInterval(() => {
-        router.reload({ only: ['stats', 'chart_hourly', 'chart_status', 'queues'] });
-    }, 10000);
+        router.reload({
+            only: ['stats', 'chart_hourly', 'chart_status', 'queues'],
+            preserveScroll: true,
+            preserveState: true
+        });
+    }, 5000);
 });
+
 onUnmounted(() => clearInterval(interval));
 
 // Helper Status Color
@@ -164,11 +183,11 @@ const getStatusBadge = (status) => {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-blue-900">
                         <h3 class="text-lg font-bold text-blue-900 mb-4">Grafik Antrian per Jam</h3>
-                        <div class="h-64"><Line :data="lineChartData" :options="lineOptions" /></div>
+                        <div class="h-64"><Line :data="lineChartData" :options="chartOptions" /></div>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-blue-900">
                         <h3 class="text-lg font-bold text-blue-900 mb-4">Statistik Status Antrian</h3>
-                        <div class="h-64"><Bar :data="barChartData" :options="barOptions" /></div>
+                        <div class="h-64"><Bar :data="barChartData" :options="chartOptions" /></div>
                     </div>
                 </div>
 

@@ -40,19 +40,22 @@ class AdminDashboardController extends Controller
             'avg_time' => $avgTime . ' menit'
         ];
 
-        // --- 2. Grafik Tren Per Jam ---
+        // --- 2. Grafik Tren Per Jam (DIPERBAIKI) ---
         $chartHourly = ['labels' => [], 'data' => []];
+        
+        // PERBAIKAN: Konversi ke WIB (Asia/Jakarta) sebelum grouping
         $hourlyGroups = $queues->groupBy(function($date) {
-            return $date->created_at->format('H:00');
+            return $date->created_at->timezone('Asia/Jakarta')->format('H:00');
         });
 
-        for($i=8; $i<=15; $i++) {
+        // PERBAIKAN: Loop diperluas dari jam 07:00 sampai 17:00 (5 sore)
+        for($i=7; $i<=17; $i++) {
             $hour = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
             $chartHourly['labels'][] = $hour;
             $chartHourly['data'][] = isset($hourlyGroups[$hour]) ? $hourlyGroups[$hour]->count() : 0;
         }
 
-        // --- 3. Grafik Distribusi Status (Pengganti Jenis Layanan) ---
+        // --- 3. Grafik Distribusi Status ---
         $statusCounts = $queues->groupBy('status')->map->count();
         $chartStatus = [
             'labels' => ['Menunggu', 'Dipanggil', 'Selesai', 'Dilewati'],
@@ -60,7 +63,7 @@ class AdminDashboardController extends Controller
                 $statusCounts['waiting'] ?? 0,
                 $statusCounts['called'] ?? 0,
                 $statusCounts['completed'] ?? 0,
-                $statusCounts['skipped'] ?? 0,
+                $statusCounts['skipped'] ?? 0, // Pastikan status 'skipped' terhitung
             ]
         ];
 
