@@ -116,8 +116,8 @@ const complete = () => {
       </div>
       <div>
         <h1>Kancab PT ASABRI (Persero) Malang</h1>
-        <p>Ruko Raden Intan Square Blok 1-2</p>
-        <p>Kota Malang, Jawa Timur</p>
+        <p>Ruko Raden Intan Square Blok 1-2, Jl. Raden Intan Kav.74</p>
+        <p>Kel. Arjosari, Kec. Blimbing, Kota Malang, Jawa Timur 65126</p>
       </div>
     </div>
     <div class="clock">{{ clock }}</div>
@@ -184,6 +184,7 @@ const complete = () => {
 
       <div class="actions">
         <button
+<<<<<<< HEAD
           class="btn success"
           :disabled="!localServing"
           @click="complete"
@@ -192,12 +193,25 @@ const complete = () => {
         </button>
 
         <button class="btn warning" :disabled="!localServing" @click="recall">
+=======
+  class="btn success"
+  :disabled="!localServing"
+  @click="complete"
+>
+  ✔ Selesai
+</button>
+        <button class="btn warning" @click="recall">
+>>>>>>> 4b59f9d (feat: add skip queue button and staff dashboard updates)
           🔔 Panggil Ulang
         </button>
 
         <button class="btn primary" @click="callNext">
           ▶ Panggil Berikutnya
         </button>
+
+          <button class="btn danger" :disabled="!localServing" @click="skip">
+            ⏭ Lewati
+          </button>
       </div>
     </div>
 

@@ -76,6 +76,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/staff/call-next', [StaffController::class, 'callNext'])->name('staff.callNext');
     Route::post('/staff/recall', [StaffController::class, 'recall'])->name('staff.recall');
     Route::post('/staff/complete', [StaffController::class, 'complete'])->name('staff.complete');
+    Route::post('/staff/skip', [StaffController::class, 'skip'])->name('staff.skip');
+
 
     // --- EXPORT EXCEL (Bisa diakses Staff & Admin) ---
     // Saya taruh di luar grup admin supaya staff bisa download laporan juga

@@ -415,6 +415,15 @@ footer {
     font-weight: 500;
 }
 
+.danger {
+  background: #e74c3c;
+  color: white;
+}
+
+.danger:hover {
+  background: #c0392b;
+}
+
 /* TRUE INFINITE */
 @keyframes tickerInfinite {
     from {
