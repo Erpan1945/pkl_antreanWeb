@@ -81,6 +81,15 @@ const handleAction = async (url, payload = {}) => {
 
 const callNext = () => handleAction('/staff/call-next')
 const recall = () => handleAction('/staff/recall')
+
+
+const skip = () => {
+    if (!localServing.value) return;
+    const tempId = localServing.value.id;
+    localServing.value = null; // Optimis UI
+    handleAction('/staff/skip', { queue_id: tempId });
+}
+
 const complete = () => {
     if (!localServing.value) return;
     const tempId = localServing.value.id;
@@ -218,6 +227,7 @@ const logout = () => router.post('/logout');
                     </div>
                     <div class="control-buttons">
                         <button class="btn-ctrl success" :disabled="!localServing || isLoading" @click="complete">✔ Selesai</button>
+                        <button class="btn-ctrl danger" :disabled="!localServing || isLoading" @click="skip">🚫 Lewati</button>
                         <button class="btn-ctrl warning" :disabled="!localServing || isLoading" @click="recall">🔔 Panggil Ulang</button>
                         <button class="btn-ctrl primary" :disabled="isLoading" @click="callNext">
                             <span v-if="isLoading">⏳...</span><span v-else>▶ Panggil Berikutnya</span>
