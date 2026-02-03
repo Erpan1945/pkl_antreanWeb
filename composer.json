@@ -68,6 +68,9 @@
             "rm -rf vendor/google/apiclient-services/src/Google/Service/Content",
             "rm -rf vendor/google/apiclient-services/src/Google/Service/Dfareporting",
             "rm -rf vendor/google/apiclient-services/src/Google/Service/Cloud*",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Maps*",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Shopping*",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/TagManager",
             "rm -rf vendor/phpoffice/phpexcel/Documentation",
             "rm -rf vendor/phpoffice/phpexcel/Examples"
     ],
