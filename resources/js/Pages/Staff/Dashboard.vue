@@ -9,7 +9,6 @@ import {
     ArrowPathIcon, 
     ArrowDownTrayIcon, 
     PowerIcon,
-    // IMPORT ICON BARU (HEROICONS)
     UsersIcon, 
     CheckCircleIcon, 
     ClockIcon 
@@ -35,7 +34,7 @@ let pollingInterval = null
 const fetchUpdates = async () => {
   try {
       const time = new Date().getTime();
-      const url = `/staff/${props.counter.id}/stats?t=${time}`; // /staff/stats/${props.counter.id}?t=${time} (jika url routenya ini, tidak bisa realtime refresh)
+      const url = `/staff/${props.counter.id}/stats?t=${time}`;
       const res = await axios.get(url);
       
       localServing.value = res.data.currentServing;
@@ -52,15 +51,13 @@ const fetchUpdates = async () => {
       }
 
   } catch (e) {
-      console.error("Gagal polling data: Pastikan Route /staff/{id}/stats ada di web.php", e);
+      console.error("Gagal polling data", e);
   }
 }
 
 onMounted(() => {
   fetchUpdates();
-  pollingInterval = setInterval(() => {
-      fetchUpdates();
-  }, 3000);
+  pollingInterval = setInterval(fetchUpdates, 3000);
 })
 
 onUnmounted(() => { if (pollingInterval) clearInterval(pollingInterval); })
@@ -73,7 +70,8 @@ const handleAction = async (url, payload = {}) => {
         await axios.post(url, { ...payload, counter_id: props.counter.id });
         await fetchUpdates(); 
     } catch (e) {
-        alert("Gagal memproses aksi. Cek koneksi.");
+        // alert("Gagal memproses aksi. Cek koneksi.");
+        console.error("Gagal aksi:", e);
     } finally {
         isLoading.value = false;
     }
@@ -82,7 +80,7 @@ const handleAction = async (url, payload = {}) => {
 const callNext = () => handleAction('/staff/call-next')
 const recall = () => handleAction('/staff/recall')
 
-
+// FUNGSI LEWATI (SKIP)
 const skip = () => {
     if (!localServing.value) return;
     const tempId = localServing.value.id;
@@ -166,43 +164,33 @@ const logout = () => router.post('/logout');
         </section>
 
         <section class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-shrink-0">
-            
             <div class="bg-blue-50 border-l-8 border-blue-500 p-6 rounded-xl shadow-sm hover:shadow-md transition">
                 <div class="flex flex-col h-full justify-between">
-                    <div class="mb-2">
-                        <UsersIcon class="w-12 h-12 text-blue-900" />
-                    </div>
+                    <div class="mb-2"><UsersIcon class="w-12 h-12 text-blue-900" /></div>
                     <div>
                         <div class="text-5xl font-extrabold text-blue-900">{{ stats.total }}</div>
                         <div class="text-sm font-bold text-gray-600 mt-1">Total Antrian</div>
                     </div>
                 </div>
             </div>
-
             <div class="bg-green-50 border-l-8 border-green-500 p-6 rounded-xl shadow-sm hover:shadow-md transition">
                 <div class="flex flex-col h-full justify-between">
-                    <div class="mb-2">
-                        <CheckCircleIcon class="w-12 h-12 text-green-800" />
-                    </div>
+                    <div class="mb-2"><CheckCircleIcon class="w-12 h-12 text-green-800" /></div>
                     <div>
                         <div class="text-5xl font-extrabold text-green-800">{{ stats.finished }}</div>
                         <div class="text-sm font-bold text-gray-600 mt-1">Selesai</div>
                     </div>
                 </div>
             </div>
-
             <div class="bg-orange-50 border-l-8 border-orange-400 p-6 rounded-xl shadow-sm hover:shadow-md transition">
                 <div class="flex flex-col h-full justify-between">
-                    <div class="mb-2">
-                        <ClockIcon class="w-12 h-12 text-orange-600" />
-                    </div>
+                    <div class="mb-2"><ClockIcon class="w-12 h-12 text-orange-600" /></div>
                     <div>
                         <div class="text-5xl font-extrabold text-orange-600">{{ localWaiting }}</div>
                         <div class="text-sm font-bold text-gray-600 mt-1">Menunggu</div>
                     </div>
                 </div>
             </div>
-
         </section>
 
         <section class="workspace">
@@ -225,10 +213,20 @@ const logout = () => router.post('/logout');
                         <span class="status-badge idle">MENUNGGU</span>
                         <p class="text-sm text-gray-400 mt-2">Silakan panggil antrian berikutnya</p>
                     </div>
+                    
                     <div class="control-buttons">
-                        <button class="btn-ctrl success" :disabled="!localServing || isLoading" @click="complete">✔ Selesai</button>
-                        <button class="btn-ctrl danger" :disabled="!localServing || isLoading" @click="skip">🚫 Lewati</button>
-                        <button class="btn-ctrl warning" :disabled="!localServing || isLoading" @click="recall">🔔 Panggil Ulang</button>
+                        <button class="btn-ctrl success" :disabled="!localServing || isLoading" @click="complete">
+                            ✔ Selesai
+                        </button>
+
+                        <button class="btn-ctrl danger" :disabled="!localServing || isLoading" @click="skip">
+                            🚫 Lewati
+                        </button>
+
+                        <button class="btn-ctrl warning" :disabled="!localServing || isLoading" @click="recall">
+                            🔔 Panggil Ulang
+                        </button>
+
                         <button class="btn-ctrl primary" :disabled="isLoading" @click="callNext">
                             <span v-if="isLoading">⏳...</span><span v-else>▶ Panggil Berikutnya</span>
                         </button>

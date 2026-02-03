@@ -84,6 +84,27 @@ class StaffController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function skip(Request $request)
+    {
+        // Validasi
+        $request->validate([
+            'queue_id' => 'required|exists:queues,id',
+        ]);
+
+        $queue = Queue::find($request->queue_id);
+
+        // Pastikan hanya bisa melewati antrian yang sedang dipanggil/dilayani
+        if ($queue && in_array($queue->status, ['called', 'serving'])) {
+            $queue->update([
+                'status' => 'skipped', // Ubah status jadi 'skipped'
+                'updated_at' => now()
+            ]);
+            return response()->json(['success' => true, 'message' => 'Antrian dilewati']);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Gagal melewati antrian'], 400);
+    }
+
     public function complete(Request $request)
     {
         Queue::where('id', $request->queue_id)->update(['status' => 'completed']);

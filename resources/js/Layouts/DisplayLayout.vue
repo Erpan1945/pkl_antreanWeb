@@ -11,13 +11,15 @@ defineProps({
 <template>
     <Head :title="title" />
 
-    <div class="h-screen w-screen bg-white overflow-hidden flex flex-col font-sans select-none">
+    <div class="h-screen w-screen bg-gray-50 flex flex-col font-sans select-none overflow-hidden">
+        
         <AppHeader />
 
-        <main class="flex-1 flex overflow-hidden relative bg-[#f8f9fa]">
+        <main class="flex-1 flex flex-col overflow-hidden relative bg-[#f8f9fa]">
             <slot />
         </main>
 
         <AppFooter />
+        
     </div>
 </template>

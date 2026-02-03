@@ -51,7 +51,7 @@ class DatabaseSeeder extends Seeder
 
         // Staff 1 (Kak Linda) -> Role diubah jadi 'staff'
         User::factory()->create([
-            'name' => 'Staff Loket 1 (Kak Linda)',
+            'name' => 'Staff Loket (Kak Linda)',
             'email' => 'admin100@asabri.co.id',
             'password' => bcrypt('kaklinda123'),
             'role' => 'staff', // <-- INI STAFF
@@ -59,7 +59,7 @@ class DatabaseSeeder extends Seeder
 
         // Staff 2 (Kak Alya) -> Role diubah jadi 'staff'
         User::factory()->create([
-            'name' => 'Staff Loket 2 (Kak Alya)',
+            'name' => 'Staff Loket (Kak Alya)',
             'email' => 'admin101@asabri.co.id',
             'password' => bcrypt('kakalya123'),
             'role' => 'staff', // <-- INI STAFF
