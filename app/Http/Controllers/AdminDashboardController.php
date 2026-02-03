@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
+use Rap2hpoutre\FastExcel\FastExcel;
 
 class AdminDashboardController extends Controller
 {
@@ -76,8 +77,18 @@ class AdminDashboardController extends Controller
         ]);
     }
 
+    // public function export()
+    // {
+    //     return Excel::download(new QueueExport(Carbon::today()), 'Laporan_Antrian_'.date('Y-m-d').'.xlsx');
+    // }
+
     public function export()
     {
-        return Excel::download(new QueueExport(Carbon::today()), 'Laporan_Antrian_'.date('Y-m-d').'.xlsx');
+        // Ambil data dari model Queue
+        // Saya tambahkan 'with' agar relasi ke Service dan Counter ikut terambil (opsional)
+        $data = Queue::with(['service', 'counter'])->get();
+        
+        // Download langsung (Tanpa file Export terpisah)
+        return (new FastExcel($data))->download('laporan-antrean.xlsx');
     }
 }
