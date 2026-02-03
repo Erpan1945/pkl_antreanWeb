@@ -56,8 +56,21 @@
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
-        ],
+            "@php artisan package:discover --ansi",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Compute",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Container",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/SqlAdmin",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/YouTube",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/AdSense",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Analytics",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/AndroidPublisher",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Apigee",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Content",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Dfareporting",
+            "rm -rf vendor/google/apiclient-services/src/Google/Service/Cloud*",
+            "rm -rf vendor/phpoffice/phpexcel/Documentation",
+            "rm -rf vendor/phpoffice/phpexcel/Examples"
+    ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
         ],

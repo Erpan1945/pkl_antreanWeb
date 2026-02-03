@@ -31,8 +31,8 @@ return new class extends Migration
             $table->foreignId('counter_id')->nullable()->constrained()->onDelete('set null');
             
             // --- KOLOM BARU ---
-            $table->string('guest_name');      // Dulu: student_name
-            $table->string('identity_number'); // Dulu: student_nrp
+            $table->string('guest_name');      
+            $table->string('identity_number'); 
             $table->string('phone_number')->nullable();
             $table->string('purpose')->nullable();
             // ------------------
