@@ -14,18 +14,6 @@
             "dest": "/public/index.php"
         }
     ],
-    "excludeFiles": [
-        ".git/**",
-        "node_modules/**",
-        "tests/**",
-        "storage/logs/**",
-        "resources/js/**",
-        "resources/css/**",
-        "package.json",
-        "package-lock.json",
-        "*.md",
-        "phpunit.xml"
-    ],
     "env": {
         "APP_ENV": "production",
         "APP_DEBUG": "false",

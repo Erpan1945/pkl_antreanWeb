@@ -1,31 +1,32 @@
-# --- SYSTEM & GIT ---
+# Git
 .git
-.gitattributes
-.github
-.idea
-.vscode
+.gitignore
 
-# --- FRONTEND (PENYEBAB UTAMA 250MB) ---
+# Frontend (PENYEBAB UTAMA SIZE BENGKAK)
 node_modules
 package.json
 package-lock.json
-bun.lockb
 yarn.lock
+bun.lockb
 webpack.mix.js
 vite.config.js
 tailwind.config.js
 postcss.config.js
 
-# --- LARAVEL DEV & CACHE ---
+# Laravel Dev & Tests
 tests
 phpunit.xml
+.env.example
+.env
+
+# Storage & Logs
 storage/*.key
 storage/framework/cache/*
 storage/framework/views/*
 storage/framework/sessions/*
 storage/logs/*
 
-# --- RESOURCES MENTAH (KITA HANYA BUTUH PUBLIC) ---
-resources/css
+# Assets Mentah (Kita cuma butuh public)
 resources/js
+resources/css
 resources/scss
