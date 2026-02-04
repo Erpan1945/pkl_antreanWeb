@@ -63,6 +63,11 @@ const chartOptions = {
 
 // --- AUTO REFRESH ---
 let interval = null;
+const inertiaIsLoading = ref(false);
+// Gunakan DOM events Inertia (tidak perlu import '@inertiajs/inertia')
+document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
+document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
+
 onMounted(() => {
     // Refresh partial data setiap 5 detik
     interval = setInterval(() => {
@@ -91,6 +96,7 @@ const getStatusBadge = (status) => {
 
 <template>
     <DisplayLayout title="Dashboard Admin">
+        <LoadingOverlay :show="inertiaIsLoading" message="Memuat data..." />
         
         <div class="h-full w-full bg-gray-50 overflow-y-auto p-8 relative">
             

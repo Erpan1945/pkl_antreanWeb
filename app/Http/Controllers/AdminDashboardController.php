@@ -86,9 +86,22 @@ class AdminDashboardController extends Controller
     {
         // Ambil data dari model Queue
         // Saya tambahkan 'with' agar relasi ke Service dan Counter ikut terambil (opsional)
-        $data = Queue::with(['service', 'counter'])->get();
-        
-        // Download langsung (Tanpa file Export terpisah)
-        return (new FastExcel($data))->download('laporan-antrean.xlsx');
+        $queues = Queue::with(['service', 'counter'])->get();
+
+        // Map data ke format kolom yang diinginkan (sesuai spreadsheet contoh)
+        $rows = $queues->map(function ($q) {
+            return [
+                'Kode Tiket' => $q->ticket_code,
+                'Nama Tamu' => $q->guest_name,
+                'NRP/NIP' => $q->identity_number,
+                'No. HP' => $q->phone_number,
+                'Keperluan' => $q->purpose,
+                'Waktu Dibuat' => $q->created_at ? $q->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s') : '',
+            ];
+        });
+
+        // Download file dengan nama berisi tanggal
+        $filename = 'laporan-antrian_'.Carbon::now()->format('Y-m-d').'.xlsx';
+        return (new FastExcel($rows))->download($filename);
     }
 }

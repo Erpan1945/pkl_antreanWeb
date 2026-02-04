@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import axios from 'axios';
-import { callQueue } from '@/utils/queueAudio';
+import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; // Import Layout
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
@@ -186,6 +186,9 @@ const enableAudio = () => {
 const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'waiting').slice(0, 3));
 
 onMounted(() => {
+    // Preload audio assets to reduce gaps saat pemanggilan
+    preloadCommonAudio().catch(() => {});
+
     loadYoutubeAPI();
     fetchData();
     dataInterval = setInterval(fetchData, 3000);

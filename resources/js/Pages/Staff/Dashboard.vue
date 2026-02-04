@@ -96,12 +96,21 @@ const complete = () => {
 }
 
 // Navigasi Menu
+import LoadingOverlay from '@/Components/LoadingOverlay.vue';
+
+const inertiaIsLoading = ref(false);
+
+// Gunakan DOM events Inertia (tidak perlu import '@inertiajs/inertia')
+document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
+document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
+
 const changeCounter = () => router.get('/staff');
 const logout = () => router.post('/logout');
 </script>
 
 <template>
   <DisplayLayout :title="`Loket ${counter.name}`">
+    <LoadingOverlay :show="isLoading || inertiaIsLoading" message="Memproses aksi..." />
     
     <div class="dashboard-fit-container relative">
         

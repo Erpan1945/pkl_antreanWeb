@@ -1,5 +1,12 @@
 <script setup>
 import { Head, Link, usePage } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import LoadingOverlay from '@/Components/LoadingOverlay.vue';
+
+const inertiaIsLoading = ref(false);
+// Gunakan DOM events Inertia (tidak perlu import '@inertiajs/inertia')
+document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
+document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
 
 // Terima data dari controller
 const props = defineProps({
@@ -13,6 +20,7 @@ const props = defineProps({
         <Head title="Pilih Loket Bertugas" />
 
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg text-center border-t-8 border-blue-900">
+            <LoadingOverlay :show="inertiaIsLoading" message="Memuat..." />
             <h1 class="text-2xl font-bold text-blue-900 mb-2">
                 Halo, {{ auth.user.name }}
             </h1>

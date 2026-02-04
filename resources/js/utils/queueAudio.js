@@ -3,6 +3,57 @@ let isPlaying = false;
 
 const BASE_PATH = '/audio';
 
+// --- AUDIO CACHE / PRELOADER (Untuk mengurangi jeda) ---
+const audioCache = new Map(); // src -> HTMLAudio element (base)
+
+const preloadFile = (src) => {
+    if (audioCache.has(src)) return audioCache.get(src).promise;
+
+    const audio = new Audio(src);
+    audio.preload = 'auto';
+
+    let resolveFn;
+    const p = new Promise((resolve) => { resolveFn = resolve; });
+
+    const cleanup = () => {
+        audio.removeEventListener('canplaythrough', onLoad);
+        audio.removeEventListener('error', onError);
+    };
+
+    const onLoad = () => { cleanup(); resolveFn(true); };
+    const onError = () => { cleanup(); resolveFn(false); };
+
+    audio.addEventListener('canplaythrough', onLoad, { once: true });
+    audio.addEventListener('error', onError, { once: true });
+
+    // Start loading
+    audio.load();
+
+    audioCache.set(src, { element: audio, promise: p });
+    return p;
+};
+
+// Preload a set of commonly-used files (numbers, frasa, tone, huruf)
+export const preloadCommonAudio = async () => {
+    const files = new Set();
+    // tone + frasa
+    files.add(`${BASE_PATH}/tone/ding.mp3`);
+    files.add(`${BASE_PATH}/frasa/nomor_antrian.mp3`);
+    files.add(`${BASE_PATH}/frasa/silakan_menuju.mp3`);
+    files.add(`${BASE_PATH}/frasa/loket.mp3`);
+
+    // angka 0-9
+    for (let i = 0; i <= 9; i++) files.add(`${BASE_PATH}/angka/${i}.mp3`);
+
+    // huruf a-z (beberapa project hanya pakai A-C, tapi kita preload lebih banyak)
+    'abcdefghijklmnopqrstuvwxyz'.split('').forEach(ch => files.add(`${BASE_PATH}/huruf/${ch}.mp3`));
+
+    const promises = Array.from(files).map(src => preloadFile(src).catch(() => false));
+    // Wait but don't block too long: return when all done or 2s timeout
+    const timeout = new Promise(resolve => setTimeout(resolve, 2000, 'timeout'));
+    await Promise.race([Promise.all(promises), timeout]);
+};
+
 // Helper: Bangun playlist audio berdasarkan data antrian
 const buildPlaylist = ({ prefix, number, counter }) => {
     const playlist = [];
@@ -45,13 +96,30 @@ const playPlaylist = (playlist, onComplete) => {
     }
 
     const src = playlist.shift();
-    const audio = new Audio(src);
+
+    // Gunakan elemen audio yang telah dipreload jika ada (clone agar bisa overlap jika perlu)
+    const cached = audioCache.get(src);
+    let audio;
+    if (cached && cached.element) {
+        try {
+            audio = cached.element.cloneNode(true);
+        } catch (e) {
+            audio = new Audio(src);
+            audio.preload = 'auto';
+        }
+    } else {
+        audio = new Audio(src);
+        audio.preload = 'auto';
+        // Start loading early to reduce latency for un-preloaded sources
+        try { audio.load(); } catch (e) {}
+    }
 
     const playNextSegment = () => playPlaylist(playlist, onComplete);
 
     audio.onended = playNextSegment;
     audio.onerror = playNextSegment; // Lanjut jika file error
 
+    // Play immediately — preloaded audio should start with minimal gap
     audio.play().catch(err => {
         console.error("Gagal memutar audio:", src, err);
         playNextSegment();
@@ -69,6 +137,11 @@ const processAnnouncementQueue = () => {
 
     const playlist = buildPlaylist(data);
 
+    // Preload playlist files (non-blocking; prefer first file) to reduce gaps
+    // Prioritize first two segments
+    preloadFile(playlist[0]).catch(() => {});
+    if (playlist[1]) preloadFile(playlist[1]).catch(() => {});
+    // Start playback — other files may continue loading in background
     playPlaylist(playlist, () => {
         // --- PERUBAHAN DI SINI: Panggil callback saat audio selesai ---
         if (onFinish) onFinish();
