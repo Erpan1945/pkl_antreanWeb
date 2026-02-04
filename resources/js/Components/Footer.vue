@@ -8,10 +8,16 @@
         <div class="flex-1 overflow-hidden relative flex items-center h-full">
             <div class="animate-marquee whitespace-nowrap flex items-center">
                 <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati • TASPEN (Persero) Melayani dengan Sepenuh Hati • BUMN Hadir Untuk Negeri
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
                 </span>
                 <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati • TASPEN (Persero) Melayani dengan Sepenuh Hati • BUMN Hadir Untuk Negeri
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                </span>
+                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                </span>
+                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
                 </span>
             </div>
         </div>
