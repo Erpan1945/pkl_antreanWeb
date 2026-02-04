@@ -2,7 +2,7 @@
     "version": 2,
     "framework": null,
     "functions": {
-        "api/index.php": { "runtime": "vercel-php@0.7.2" } 
+        "api/index.php": { "runtime": "vercel-php@0.7.2" }
     },
     "routes": [
         {
@@ -13,6 +13,18 @@
             "src": "/(.*)",
             "dest": "/public/index.php"
         }
+    ],
+    "excludeFiles": [
+        ".git/**",
+        "node_modules/**",
+        "tests/**",
+        "storage/logs/**",
+        "resources/js/**",
+        "resources/css/**",
+        "package.json",
+        "package-lock.json",
+        "*.md",
+        "phpunit.xml"
     ],
     "env": {
         "APP_ENV": "production",

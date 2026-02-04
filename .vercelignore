@@ -1,8 +1,31 @@
+# --- SYSTEM & GIT ---
 .git
+.gitattributes
+.github
+.idea
+.vscode
+
+# --- FRONTEND (PENYEBAB UTAMA 250MB) ---
 node_modules
+package.json
+package-lock.json
+bun.lockb
+yarn.lock
+webpack.mix.js
+vite.config.js
+tailwind.config.js
+postcss.config.js
+
+# --- LARAVEL DEV & CACHE ---
 tests
+phpunit.xml
 storage/*.key
 storage/framework/cache/*
 storage/framework/views/*
 storage/framework/sessions/*
-.env
+storage/logs/*
+
+# --- RESOURCES MENTAH (KITA HANYA BUTUH PUBLIC) ---
+resources/css
+resources/js
+resources/scss
