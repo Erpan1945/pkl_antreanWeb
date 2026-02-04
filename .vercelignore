@@ -1,32 +1,31 @@
-# Git
+# Vercel internals
+.vercel
 .git
 .gitignore
 
-# Frontend (PENYEBAB UTAMA SIZE BENGKAK)
+# Dependencies (Diinstall otomatis oleh Vercel, JANGAN di-upload)
 node_modules
-package.json
-package-lock.json
-yarn.lock
-bun.lockb
-webpack.mix.js
-vite.config.js
-tailwind.config.js
-postcss.config.js
+vendor
 
-# Laravel Dev & Tests
+# Environment variables (JANGAN di-upload, set di Vercel Dashboard)
+.env
+.env.example
+
+# Tests
 tests
 phpunit.xml
-.env.example
-.env
 
-# Storage & Logs
+# Storage & Logs (Ephemeral di Vercel, tidak perlu di-upload)
 storage/*.key
 storage/framework/cache/*
 storage/framework/views/*
 storage/framework/sessions/*
 storage/logs/*
+!storage/framework/cache/.gitignore
+!storage/framework/views/.gitignore
+!storage/framework/sessions/.gitignore
 
-# Assets Mentah (Kita cuma butuh public)
-resources/js
-resources/css
-resources/scss
+# Editor files
+.idea
+.vscode
+*.sublime-workspace
