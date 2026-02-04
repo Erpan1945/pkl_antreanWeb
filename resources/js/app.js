@@ -8,8 +8,6 @@ import { createApp, h } from 'vue';
 // --- PERUBAHAN DI SINI ---
 // 1. Ambil library dari NPM (bukan folder vendor)
 import { ZiggyVue } from 'ziggy-js';
-// 2. Ambil daftar route yang sudah di-generate tadi
-import { Ziggy } from './ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -24,7 +22,7 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             // 3. Masukkan konfigurasi route ke plugin
-            .use(ZiggyVue, Ziggy) 
+            .use(ZiggyVue) 
             .mount(el);
     },
     progress: {
