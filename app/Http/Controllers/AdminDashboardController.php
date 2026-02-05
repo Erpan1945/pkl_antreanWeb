@@ -84,11 +84,19 @@ class AdminDashboardController extends Controller
 
     public function export()
     {
-        // Ambil data dari model Queue
-        // Saya tambahkan 'with' agar relasi ke Service dan Counter ikut terambil (opsional)
-        $queues = Queue::with(['service', 'counter'])->get();
+        // Ambil data hanya untuk hari ini (WIB)
+        $todayWIB = Carbon::today('Asia/Jakarta');
 
-        // Map data ke format kolom yang diinginkan (sesuai spreadsheet contoh)
+        // Konversi ke UTC untuk query yang akurat jika DB menyimpan timestamp UTC
+        $startUtc = $todayWIB->copy()->startOfDay()->setTimezone('UTC');
+        $endUtc = $todayWIB->copy()->endOfDay()->setTimezone('UTC');
+
+        $queues = Queue::with(['service', 'counter'])
+            ->whereBetween('created_at', [$startUtc, $endUtc])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Map data ke format kolom yang diinginkan
         $rows = $queues->map(function ($q) {
             return [
                 'Kode Tiket' => $q->ticket_code,
@@ -100,8 +108,8 @@ class AdminDashboardController extends Controller
             ];
         });
 
-        // Download file dengan nama berisi tanggal
-        $filename = 'laporan-antrian_'.Carbon::now()->format('Y-m-d').'.xlsx';
+        // Download file dengan nama berisi tanggal WIB
+        $filename = 'laporan-antrian_'.Carbon::now('Asia/Jakarta')->format('Y-m-d').'.xlsx';
         return (new FastExcel($rows))->download($filename);
     }
 }

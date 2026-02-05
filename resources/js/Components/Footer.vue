@@ -19,6 +19,18 @@
                 <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
                     PT ASABRI (Persero) Melayani dengan Sepenuh Hati
                 </span>
+                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                </span>
+                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                </span>
+                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                </span>
+                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                </span>
             </div>
         </div>
     </footer>
@@ -28,7 +40,7 @@
 /* Animasi Running Text Smooth */
 .animate-marquee {
     display: inline-block;
-    animation: marquee 25s linear infinite;
+    animation: marquee 50s linear infinite;
 }
 
 @keyframes marquee {
