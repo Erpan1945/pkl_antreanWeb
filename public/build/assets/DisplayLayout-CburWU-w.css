@@ -1,0 +1,1 @@
+.animate-marquee[data-v-6f27ce50]{display:inline-block;animation:marquee-6f27ce50 25s linear infinite}@keyframes marquee-6f27ce50{0%{transform:translate(0)}to{transform:translate(-100%)}}.clip-miring[data-v-6f27ce50]{clip-path:polygon(0 0,90% 0,100% 100%,0% 100%)}@media(max-width:640px){.clip-miring[data-v-6f27ce50]{clip-path:none!important;border-right:3px solid #00447c}}
