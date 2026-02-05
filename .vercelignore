@@ -52,6 +52,3 @@ vendor/google/apiclient-services/src/Google/Service/Dfareporting*
 vendor/google/apiclient-services/src/Google/Service/Games*
 vendor/google/apiclient-services/src/Google/Service/Genomics*
 vendor/google/apiclient-services/src/Google/Service/ShoppingContent*
-
-composer.json
-composer.lock
