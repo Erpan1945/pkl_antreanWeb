@@ -38,7 +38,7 @@
     },
     "scripts": {
         "pre-autoload-dump": [
-            "Google\\Task\\Composer::cleanup"
+            "@php cleanup_google.php"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
