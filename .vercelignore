@@ -5,7 +5,7 @@
 
 # Dependencies (Diinstall otomatis oleh Vercel, JANGAN di-upload)
 node_modules
-vendor
+#vendor
 
 # Environment variables (JANGAN di-upload, set di Vercel Dashboard)
 .env
@@ -52,3 +52,6 @@ vendor/google/apiclient-services/src/Google/Service/Dfareporting*
 vendor/google/apiclient-services/src/Google/Service/Games*
 vendor/google/apiclient-services/src/Google/Service/Genomics*
 vendor/google/apiclient-services/src/Google/Service/ShoppingContent*
+
+composer.json
+composer.lock
