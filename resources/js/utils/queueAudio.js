@@ -114,15 +114,34 @@ const playPlaylist = (playlist, onComplete) => {
         try { audio.load(); } catch (e) {}
     }
 
-    const playNextSegment = () => playPlaylist(playlist, onComplete);
+    // Kecepatan 1.25 agar suara lebih sigap
+    audio.playbackRate = 1.25; 
 
-    audio.onended = playNextSegment;
-    audio.onerror = playNextSegment; // Lanjut jika file error
+    let hasTriggeredNext = false;
+
+    const playNext = () => {
+        if (!hasTriggeredNext) {
+            hasTriggeredNext = true;
+            playPlaylist(playlist, onComplete);
+        }
+    };
+
+    // --- TEKNIK TANPA JEDA (GAPLESS) ---
+    // Sisa durasi 0.2 detik langsung panggil audio berikutnya untuk memotong jeda MP3
+    audio.ontimeupdate = () => {
+        if (audio.duration > 0 && (audio.duration - audio.currentTime < 0.2)) {
+            playNext();
+        }
+    };
+
+    // Fallback tetap ada agar antrian tidak macet
+    audio.onended = playNext;
+    audio.onerror = playNext;
 
     // Play immediately — preloaded audio should start with minimal gap
     audio.play().catch(err => {
         console.error("Gagal memutar audio:", src, err);
-        playNextSegment();
+        playNext();
     });
 };
 

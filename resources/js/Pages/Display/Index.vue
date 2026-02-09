@@ -6,9 +6,10 @@ import DisplayLayout from '@/Layouts/DisplayLayout.vue'; // Import Layout
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
-const videoId = ref("vHZhFmkINI8"); 
-const indonesiaRayaId = "h_7SSTIn88E"; 
+const videoId = ref("vHZhFmkINI8"); // Video Default ASABRI
+const indonesiaRayaId = "HKrhbLJa1JA"; // ID Video Indonesia Raya
 const isIndonesiaRayaPlaying = ref(false);
+const hasPlayedToday = ref(false); // Variable baru untuk pengunci
 
 // --- STATE UTAMA ---
 const activeQueues = ref([]);
@@ -76,29 +77,64 @@ const loadYoutubeAPI = () => {
     }
 };
 
-// --- LOGIKA INDONESIA RAYA ---
+// --- LOGIKA INDONESIA RAYA (PERBAIKAN LOOP OTOMATIS) ---
 const checkIndonesiaRayaTime = () => {
     const now = new Date();
-    const day = now.getDay(); // 1-5 (Senin-Jumat)
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    const seconds = now.getSeconds();
 
-    // Cek jam 10:00:00 tepat
-    if (day >= 1 && day <= 5 && hours === 10 && minutes === 0 && seconds === 0) {
-        if (!isIndonesiaRayaPlaying.value && player.value && typeof player.value.loadVideoById === 'function') {
-            isIndonesiaRayaPlaying.value = true;
-            player.value.loadVideoById(indonesiaRayaId);
-            player.value.unMute();
-            player.value.setVolume(100);
-            player.value.playVideo();
-            
-            // Durasi Indonesia Raya ~2 menit 15 detik
-            setTimeout(() => {
-                player.value.loadVideoById(videoId.value);
-                isIndonesiaRayaPlaying.value = false;
-            }, 135000);
+    // Sesuaikan dengan jam target Anda (contoh 23:34)
+    const targetHour = 7;    
+    const targetMinute = 27;  
+
+    if (hours === targetHour && minutes === targetMinute) {
+        if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
+            if (player.value && typeof player.value.loadVideoById === 'function') {
+                console.log("MEMUTAR INDONESIA RAYA...");
+                
+                isIndonesiaRayaPlaying.value = true;
+                hasPlayedToday.value = true; 
+                
+                // Putar Indonesia Raya
+                player.value.loadVideoById(indonesiaRayaId);
+                player.value.unMute();
+                player.value.setVolume(100);
+                player.value.playVideo();
+
+                // --- Di dalam fungsi checkIndonesiaRayaTime ---
+
+               // --- Di dalam fungsi checkIndonesiaRayaTime ---
+
+                                // --- Di dalam fungsi checkIndonesiaRayaTime ---
+
+                setTimeout(() => {
+                    console.log("KEMBALI KE ASABRI DAN LOCK PLAYLIST");
+                    
+                    if (player.value) {
+                        // Kita paksa muat ulang sebagai PLAYLIST tunggal agar YouTube tidak punya pilihan video lain
+                        player.value.loadPlaylist({
+                            playlist: [videoId.value], // Hanya isi ID video ASABRI
+                            listType: 'playlist',
+                            index: 0,
+                            startSeconds: 0
+                        });
+
+                        // Setel ulang agar terus mengulang playlist yang isinya cuma 1 video ini
+                        player.value.setLoop(true);
+                        
+                        // Pastikan suara kembali normal jika tadi sempat dikecilkan
+                        player.value.unMute();
+                        player.value.setVolume(100);
+                    }
+
+                    isIndonesiaRayaPlaying.value = false;
+                }, 133000); // 132 detik (2:12)
+            }
         }
+    }
+
+    if (minutes !== targetMinute) {
+        hasPlayedToday.value = false;
     }
 };
 
