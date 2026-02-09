@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Revolution\Google\Sheets\Facades\Sheets;
+use App\Jobs\SyncQueueToGoogleSheets;
 
 class TicketController extends Controller
 {
@@ -70,51 +71,19 @@ class TicketController extends Controller
             });
 
             $googleSheetsError = null;
-            // Kirim ke Google Sheets
+            // OPTIMIZED: Kirim ke Google Sheets secara ASYNC (jangan block response)
             try {
-                // Nama sheet berdasarkan Bulan & Tahun (Format: Januari 2026)
-                // Pastikan locale 'id' untuk Bahasa Indonesia
-                $sheetName = Carbon::now()->locale('id')->isoFormat('MMMM Y');
-                
-                $sheets = Sheets::spreadsheet(config('google.spreadsheet_id'));
-                
-                // Cek apakah sheet sudah ada
-                $sheetList = $sheets->sheetList();
-                $sheetExists = in_array($sheetName, $sheetList);
-
-                // Jika belum ada, buat sheet baru dan isi header
-                if (!$sheetExists) {
-                    $sheets->addSheet($sheetName);
-                    
-                    // Tunggu sebentar (opsional) atau langsung append header
-                    $sheets->sheet($sheetName)->append([
-                        ['Kode Tiket', 'Nama Tamu', 'NRP/NIP', 'No. HP', 'Keperluan', 'Waktu Dibuat']
-                    ]);
-                }
-
-                // Append data ke sheet yang sesuai
-                $sheets->sheet($sheetName)
-                    ->append([
-                        [
-                            $ticket->ticket_code,
-                            $ticket->guest_name,
-                            $ticket->identity_number,
-                            $ticket->phone_number,
-                            $ticket->purpose,
-                            $ticket->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s')
-                        ]
-                    ]);
+                SyncQueueToGoogleSheets::dispatch($ticket);
             } catch (\Exception $e) {
-                Log::error('Google Sheets Error: ' . $e->getMessage());
-                $googleSheetsError = $e->getMessage();
+                Log::error('Google Sheets Queue Error: ' . $e->getMessage());
+                // Jangan return error ke user, tetap lanjutkan karena tiket sudah dibuat
             }
 
             return response()->json([
                 'message' => 'Tiket berhasil dibuat',
                 'ticket' => $ticket,
                 'service_name' => $service->name,
-                'date' => $ticket->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s'),
-                'google_sheets_error' => $googleSheetsError
+                'date' => $ticket->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s')
             ]);
 
         } catch (\Exception $e) {

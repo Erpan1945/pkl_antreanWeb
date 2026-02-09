@@ -37,10 +37,12 @@ class StaffController extends Controller
     // --- API REALTIME (Digunakan oleh Polling) ---
     public function getStats($counterId)
     {
+        // OPTIMIZED: Hanya 1 query untuk waiting list, bukan 2x
+        $waitingList = $this->getWaitingList();
+        
         return response()->json([
             'currentServing' => $this->getCurrentServing($counterId),
-            'waitingList'    => $this->getWaitingList(), // INI YANG DULU HILANG
-            'waitingCount'   => $this->getWaitingList()->count(),
+            'waitingList'    => $waitingList,
             'stats'          => $this->getDailyStats()
         ]);
     }
@@ -111,25 +113,33 @@ class StaffController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // --- HELPER QUERIES ---
+    // --- HELPER QUERIES (OPTIMIZED) ---
     private function getCurrentServing($counterId) {
-        return Queue::where('counter_id', $counterId)
+        return Queue::select(['id', 'ticket_code', 'guest_name', 'counter_id', 'status', 'created_at'])
+            ->where('counter_id', $counterId)
             ->whereIn('status', ['called', 'serving'])
             ->whereDate('created_at', Carbon::today())
             ->first();
     }
 
     private function getWaitingList() {
-        return Queue::where('status', 'waiting')
+        return Queue::select(['id', 'ticket_code', 'guest_name', 'number', 'created_at'])
+            ->where('status', 'waiting')
             ->whereDate('created_at', Carbon::today())
             ->orderBy('created_at', 'asc')
-            ->get(); // Ambil semua data, bukan cuma count()
+            ->get();
     }
 
     private function getDailyStats() {
+        // OPTIMIZED: Gunakan selectRaw untuk aggregate dalam 1 query
+        // PostgreSQL butuh single quotes untuk string literal dalam SQL
+        $stats = Queue::selectRaw("COUNT(*) as total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as finished")
+            ->whereDate('created_at', Carbon::today())
+            ->first();
+        
         return [
-            'total' => Queue::whereDate('created_at', Carbon::today())->count(),
-            'finished' => Queue::where('status', 'completed')->whereDate('created_at', Carbon::today())->count(),
+            'total' => (int)$stats->total,
+            'finished' => (int)($stats->finished ?? 0),
         ];
     }
 

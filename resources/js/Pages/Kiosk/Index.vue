@@ -38,19 +38,23 @@ const submitTicket = async () => {
         });
         
         ticketData.value = response.data;
+        
+        // OPTIMIZED: Immediately clear form for next user (optimistic UI)
+        form.value.guest_name = '';
+        form.value.identity_number = '';
+        form.value.phone_number = '';
+        form.value.purpose = '';
+        
         await nextTick(); 
 
+        // OPTIMIZED: Reduced delays for faster printing
         setTimeout(() => {
             window.print();
             setTimeout(() => {
-                form.value.guest_name = '';
-                form.value.identity_number = '';
-                form.value.phone_number = '';
-                form.value.purpose = '';
                 ticketData.value = null;
                 printing.value = false;
-            }, 500);
-        }, 300);
+            }, 300);
+        }, 200);
 
     } catch (error) {
         console.error(error);

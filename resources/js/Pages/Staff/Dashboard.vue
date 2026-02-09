@@ -30,12 +30,11 @@ const localWaiting = ref(props.waitingList ? props.waitingList.length : 0)
 
 let pollingInterval = null
 
-// --- POLLING REALTIME ---
+// --- POLLING REALTIME (OPTIMIZED) ---
 const fetchUpdates = async () => {
   try {
-      const time = new Date().getTime();
-      const url = `/staff/${props.counter.id}/stats?t=${time}`;
-      const res = await axios.get(url);
+      // OPTIMIZED: Remove timestamp cache-busting (server handles cache properly)
+      const res = await axios.get(`/staff/${props.counter.id}/stats`);
       
       localServing.value = res.data.currentServing;
       if (res.data.waitingList) {
@@ -57,20 +56,21 @@ const fetchUpdates = async () => {
 
 onMounted(() => {
   fetchUpdates();
-  pollingInterval = setInterval(fetchUpdates, 3000);
+  // OPTIMIZED: Increase polling from 3s to 5s (still real-time, less network traffic)
+  pollingInterval = setInterval(fetchUpdates, 5000);
 })
 
 onUnmounted(() => { if (pollingInterval) clearInterval(pollingInterval); })
 
-// --- TOMBOL AKSI ---
+// --- TOMBOL AKSI (OPTIMIZED) ---
 const handleAction = async (url, payload = {}) => {
     if (isLoading.value) return; 
     isLoading.value = true;
     try {
         await axios.post(url, { ...payload, counter_id: props.counter.id });
+        // OPTIMIZED: Fetch updates immediately after action (still faster than before)
         await fetchUpdates(); 
     } catch (e) {
-        // alert("Gagal memproses aksi. Cek koneksi.");
         console.error("Gagal aksi:", e);
     } finally {
         isLoading.value = false;

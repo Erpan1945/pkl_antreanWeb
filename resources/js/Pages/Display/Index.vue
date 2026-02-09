@@ -194,7 +194,7 @@ const fetchData = async () => {
                         number: cleanedNumber, 
                         counter: queue.counter ? queue.counter.name.replace(/\D/g, '') : '1' 
                     },
-                    originalData: queue 
+                    originalData: queue
                 });
             });
 
