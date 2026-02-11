@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
-use Revolution\Google\Sheets\Facades\Sheets;
 use App\Jobs\SyncQueueToGoogleSheets;
 
 class TicketController extends Controller
@@ -17,27 +16,30 @@ class TicketController extends Controller
     public function index()
     {
         return Inertia::render('Kiosk/Index', [
-            // Kirim data layanan (opsional, untuk debug)
             'services' => Service::all() 
         ]);
     }
 
     public function store(Request $request)
     {
-        // 1. VALIDASI (Hanya Data Diri, TANPA service_id)
+        // 1. VALIDASI DIPERKETAT
+        // Kita gunakan 'in' agar input hanya menerima nilai yang ada di dropdown
         $request->validate([
             'guest_name'      => 'required|string|max:100',
             'identity_number' => 'required|string|max:20',
             'phone_number'    => 'required|string|max:15',
-            'purpose'         => 'nullable|string|max:255',
+            'purpose'         => [
+                'required',
+                'string',
+                // Pastikan hanya menerima value ini (sesuai dropdown Vue)
+                'in:pdth,pengurusan pensiun,bppp,bpi,bps,bpa,lainnya'
+            ],
         ]);
 
         try {
-            // --- LOGIKA OTOMATIS PILIH LAYANAN ---
-            // Ambil layanan pertama yang ada di database
+            // Ambil layanan pertama (default)
             $service = Service::first();
 
-            // CEK JIKA DATABASE KOSONG (PENTING!)
             if (!$service) {
                 throw new \Exception("ERROR: Data Layanan KOSONG. Jalankan 'php artisan db:seed' dulu!");
             }
@@ -48,8 +50,8 @@ class TicketController extends Controller
                 $today = Carbon::today();
                 $lastQueue = Queue::where('service_id', $service->id)
                     ->whereDate('created_at', $today)
+                    ->lockForUpdate() // Mencegah nomor ganda
                     ->orderBy('number', 'desc')
-                    ->lockForUpdate()
                     ->first();
 
                 // Buat nomor antrian baru
@@ -58,36 +60,39 @@ class TicketController extends Controller
 
                 // Simpan ke Database
                 return Queue::create([
-                    'service_id'      => $service->id, // ID Otomatis
+                    'service_id'      => $service->id,
                     'counter_id'      => null,
                     'guest_name'      => $request->guest_name,
                     'identity_number' => $request->identity_number,
                     'phone_number'    => $request->phone_number,
-                    'purpose'         => $request->purpose,
+                    'purpose'         => $request->purpose, // Data dari dropdown
                     'number'          => $newNumber,
                     'ticket_code'     => $ticketCode,
                     'status'          => 'waiting'
                 ]);
             });
 
-            $googleSheetsError = null;
-            // OPTIMIZED: Kirim ke Google Sheets secara ASYNC (jangan block response)
+            // Kirim ke Google Sheets (Async)
             try {
                 SyncQueueToGoogleSheets::dispatch($ticket);
             } catch (\Exception $e) {
                 Log::error('Google Sheets Queue Error: ' . $e->getMessage());
-                // Jangan return error ke user, tetap lanjutkan karena tiket sudah dibuat
             }
 
+            // RESPON JSON KE VUE
             return response()->json([
                 'message' => 'Tiket berhasil dibuat',
-                'ticket' => $ticket,
+                'ticket' => [
+                    'ticket_code'     => $ticket->ticket_code,
+                    'guest_name'      => $ticket->guest_name,
+                    'identity_number' => $ticket->identity_number,
+                    'purpose'         => $ticket->purpose, // Pastikan ini terkirim
+                ],
                 'service_name' => $service->name,
-                'date' => $ticket->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s')
+                'date' => $ticket->created_at->timezone('Asia/Jakarta')->format('d M Y H:i')
             ]);
 
         } catch (\Exception $e) {
-            // Tangkap Error Spesifik (seperti Database Kosong)
             return response()->json(['message' => $e->getMessage()], 500);
         }
     }

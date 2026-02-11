@@ -113,19 +113,33 @@ class StaffController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // --- HELPER QUERIES (OPTIMIZED) ---
     private function getCurrentServing($counterId) {
-        return Queue::select(['id', 'ticket_code', 'guest_name', 'counter_id', 'status', 'created_at'])
+        return Queue::select([
+                'id', 
+                'ticket_code', 
+                'guest_name', 
+                'counter_id', 
+                'status', 
+                'created_at', 
+                'identity_number', 
+                'purpose'])
             ->where('counter_id', $counterId)
             ->whereIn('status', ['called', 'serving'])
-            ->whereDate('created_at', Carbon::today())
+            ->where('created_at', '>=', Carbon::today()->startOfDay()) 
             ->first();
     }
 
     private function getWaitingList() {
-        return Queue::select(['id', 'ticket_code', 'guest_name', 'number', 'created_at'])
+        return Queue::select([
+                'id',
+                'ticket_code', 
+                'guest_name', 
+                'number', 
+                'created_at', 
+                'identity_number', 
+                'purpose'])
             ->where('status', 'waiting')
-            ->whereDate('created_at', Carbon::today())
+            ->where('created_at', '>=', Carbon::today()->startOfDay())
             ->orderBy('created_at', 'asc')
             ->get();
     }

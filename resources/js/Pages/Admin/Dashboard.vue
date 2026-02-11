@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
+import { supabase } from '@/utils/supabase'; // IMPORT SUPABASE
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line, Bar } from 'vue-chartjs';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue';
@@ -30,14 +31,13 @@ const props = defineProps({
 });
 
 // --- CHART CONFIG (COMPUTED AGAR REAKTIF) ---
-// Menggunakan computed properti memastikan grafik membaca data terbaru dari props
 const lineChartData = computed(() => ({
-    labels: props.chart_hourly.labels, // Data label (Jam) dari backend
+    labels: props.chart_hourly.labels,
     datasets: [{
         label: 'Antrian',
         borderColor: '#1e3a8a', 
         backgroundColor: 'rgba(30, 58, 138, 0.1)',
-        data: props.chart_hourly.data, // Data jumlah dari backend
+        data: props.chart_hourly.data,
         fill: true,
         tension: 0.4
     }]
@@ -56,30 +56,54 @@ const barChartData = computed(() => ({
 const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    animation: false, // Matikan animasi saat update agar tidak glitch
+    animation: false, 
     plugins: { legend: { display: false } },
     scales: { y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { borderDash: [2, 4] } } }
 };
 
-// --- AUTO REFRESH ---
-let interval = null;
+// --- REALTIME RELOAD (PENGGANTI INTERVAL) ---
+let realtimeChannel = null;
 const inertiaIsLoading = ref(false);
-// Gunakan DOM events Inertia (tidak perlu import '@inertiajs/inertia')
+
 document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
 document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
 
+// Fungsi Debounce agar tidak spam request jika data masuk banyak sekaligus
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+const refreshData = debounce(() => {
+    // Reload data parsial Inertia hanya saat Supabase mendeteksi perubahan
+    console.log("⚡ Refreshing Admin Data...");
+    router.reload({
+        only: ['stats', 'chart_hourly', 'chart_status', 'queues'],
+        preserveScroll: true,
+        preserveState: true
+    });
+}, 1000); // Tunggu 1 detik rededuping
+
 onMounted(() => {
-    // Refresh partial data setiap 5 detik
-    interval = setInterval(() => {
-        router.reload({
-            only: ['stats', 'chart_hourly', 'chart_status', 'queues'],
-            preserveScroll: true,
-            preserveState: true
-        });
-    }, 5000);
+    // Setup Realtime Listener
+    realtimeChannel = supabase
+        .channel('admin-dashboard')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => {
+            refreshData();
+        })
+        .subscribe();
 });
 
-onUnmounted(() => clearInterval(interval));
+onUnmounted(() => {
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+});
 
 // Helper Status Color
 const getStatusBadge = (status) => {
@@ -155,6 +179,7 @@ const getStatusBadge = (status) => {
                         <div class="flex items-center gap-2 text-gray-500 mt-1">
                             <CalendarDaysIcon class="w-5 h-5" />
                             <span>{{ current_date }}</span>
+                            <span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold ml-2 animate-pulse">● Live</span>
                         </div>
                     </div>
                 </div>

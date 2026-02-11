@@ -7,21 +7,41 @@ const props = defineProps({ services: Array });
 const printing = ref(false);
 const ticketData = ref(null);
 
+// Definisikan Opsi Dropdown di sini agar bisa dipakai untuk reset
+const defaultPurpose = 'pdth'; 
+
 const form = ref({
     service_id: '', 
     guest_name: '',
     identity_number: '',
     phone_number: '',
-    purpose: ''
+    purpose: defaultPurpose // Inisialisasi awal agar tidak null
 });
 
+// Daftar Opsi
+const purposeOptions = [
+    { value: 'pdth', label: 'PDTH' },
+    { value: 'pengurusan pensiun', label: 'Pengurusan Pensiun' },
+    { value: 'bppp', label: 'BPPP' },
+    { value: 'bpi', label: 'BPI' },
+    { value: 'bps', label: 'BPS' },
+    { value: 'bpa', label: 'BPA' },
+    { value: 'lainnya', label: 'Lainnya' },
+];
+
 onMounted(() => {
+    // Set service ID pertama jika ada
     if (props.services && props.services.length > 0) {
         form.value.service_id = props.services[0].id;
+    }
+    // Pastikan purpose tidak kosong saat mount
+    if (!form.value.purpose) {
+        form.value.purpose = defaultPurpose;
     }
 });
 
 const submitTicket = async () => {
+    // Validasi input
     if (!form.value.guest_name || !form.value.identity_number) {
         alert("Mohon lengkapi Nama dan NRP/Identitas.");
         return;
@@ -34,31 +54,35 @@ const submitTicket = async () => {
             guest_name: form.value.guest_name,
             identity_number: form.value.identity_number,
             phone_number: form.value.phone_number,
-            purpose: form.value.purpose
+            purpose: form.value.purpose 
         });
         
+        // Simpan data tiket dari server
         ticketData.value = response.data;
         
-        // OPTIMIZED: Immediately clear form for next user (optimistic UI)
+        // Tunggu Vue selesai render struk tiket ke HTML sebelum print
+        await nextTick(); 
+
+        // Reset form segera agar siap untuk orang berikutnya
         form.value.guest_name = '';
         form.value.identity_number = '';
         form.value.phone_number = '';
-        form.value.purpose = '';
+        form.value.purpose = defaultPurpose; 
         
-        await nextTick(); 
-
-        // OPTIMIZED: Reduced delays for faster printing
+        // Beri jeda sedikit agar CSS print ter-load sempurna
         setTimeout(() => {
             window.print();
+            
+            // Hilangkan data tiket setelah dialog print ditutup/selesai
             setTimeout(() => {
                 ticketData.value = null;
                 printing.value = false;
-            }, 300);
-        }, 200);
+            }, 500); 
+        }, 300);
 
     } catch (error) {
         console.error(error);
-        alert('Terjadi kesalahan sistem.');
+        alert('Terjadi kesalahan sistem: ' + (error.response?.data?.message || error.message));
         printing.value = false;
     }
 };
@@ -87,12 +111,7 @@ const submitTicket = async () => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                             Nama Lengkap
                         </label>
-                        <input 
-                            v-model="form.guest_name" 
-                            type="text" 
-                            placeholder="Ketik nama lengkap..." 
-                            class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-gray-800 focus:ring-2 focus:ring-[#00569c]/20 focus:border-[#00569c] focus:outline-none font-bold transition-all text-sm"
-                        >
+                        <input v-model="form.guest_name" type="text" placeholder="Ketik nama..." class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 font-bold text-sm">
                     </div>
 
                     <div>
@@ -100,12 +119,7 @@ const submitTicket = async () => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                             NRP / NIP / Identitas
                         </label>
-                        <input 
-                            v-model="form.identity_number" 
-                            type="text" 
-                            placeholder="Ketik Nomor Identitas..." 
-                            class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-gray-800 focus:ring-2 focus:ring-[#00569c]/20 focus:border-[#00569c] focus:outline-none font-bold transition-all text-sm"
-                        >
+                        <input v-model="form.identity_number" type="text" placeholder="Ketik NRP/Identitas..." class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 font-bold text-sm">
                     </div>
 
                     <div>
@@ -113,12 +127,7 @@ const submitTicket = async () => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
                             Nomor Telepon
                         </label>
-                        <input 
-                            v-model="form.phone_number" 
-                            type="text" 
-                            placeholder="08xx-xxxx-xxxx" 
-                            class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-gray-800 focus:ring-2 focus:ring-[#00569c]/20 focus:border-[#00569c] focus:outline-none font-bold transition-all text-sm"
-                        >
+                        <input v-model="form.phone_number" type="text" placeholder="08xx..." class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 font-bold text-sm">
                     </div>
 
                     <div>
@@ -126,21 +135,18 @@ const submitTicket = async () => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             Keperluan
                         </label>
-                        <input 
+                        <select 
                             v-model="form.purpose" 
-                            type="text"
-                            placeholder="Contoh: Pengurusan Pensiun" 
-                            class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-gray-800 focus:ring-2 focus:ring-[#00569c]/20 focus:border-[#00569c] focus:outline-none font-bold transition-all text-sm"
+                            class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-gray-800 focus:border-[#00569c] focus:outline-none font-bold text-sm appearance-none cursor-pointer"
                         >
+                            <option v-for="option in purposeOptions" :key="option.value" :value="option.value">
+                                {{ option.label }}
+                            </option>
+                        </select>
                     </div>
 
                     <div class="pt-2 mt-1">
-                        <button 
-                            @click="submitTicket" 
-                            :disabled="printing"
-                            class="w-full bg-[#ffc107] hover:bg-yellow-400 text-[#00569c] font-black py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all transform active:scale-[0.98] flex items-center justify-center gap-3 border-b-4 border-yellow-600 active:border-b-0 active:translate-y-1"
-                        >
-                            <svg v-if="!printing" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        <button @click="submitTicket" :disabled="printing" class="w-full bg-[#ffc107] hover:bg-yellow-400 text-[#00569c] font-black py-3.5 rounded-xl shadow-md border-b-4 border-yellow-600 active:border-b-0 active:translate-y-1 transition-all">
                             <span v-if="!printing" class="text-lg tracking-wider">CETAK TIKET ANTRIAN</span>
                             <span v-else class="text-lg tracking-wider animate-pulse">SEDANG MEMPROSES...</span>
                         </button>
@@ -148,11 +154,6 @@ const submitTicket = async () => {
 
                 </div>
             </div>
-
-            <div class="mt-4 text-[#00569c] font-bold opacity-60 text-s shrink-0">
-                *Pastikan data yang diisi sesuai dengan kartu identitas
-            </div>
-
         </div>
 
         <div v-if="printing" class="fixed inset-0 bg-[#00569c]/90 z-[60] flex items-center justify-center flex-col backdrop-blur-md">
@@ -173,7 +174,7 @@ const submitTicket = async () => {
                 <div class="guest-info">
                     <p><strong>Nama:</strong> {{ ticketData.ticket.guest_name }}</p>
                     <p><strong>NRP:</strong> {{ ticketData.ticket.identity_number }}</p>
-                    <p><strong>Perihal:</strong> {{ ticketData.ticket.purpose }}</p>
+                    <p><strong>Perihal:</strong> {{ ticketData.ticket.purpose.toUpperCase() }}</p>
                 </div>
                 <hr class="dashed" />
                 <p class="footer-note">Simpan struk ini hingga dipanggil.</p>
@@ -185,24 +186,76 @@ const submitTicket = async () => {
 </template>
 
 <style>
+/* CSS KHUSUS PRINT (WAJIB SEPERTI INI) */
 @media print {
-    body * { visibility: hidden; }
-    .print-only, .print-only * { visibility: visible !important; display: block !important;}
-    .print-only { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; background: white; }
-    
-    .ticket-container { 
-        width: 100%; max-width: 80mm; margin: 0 auto; text-align: center; 
-        font-family: 'Courier New', Courier, monospace;
+    /* 1. RESET HALAMAN GLOBAL */
+    html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden; 
+    }
+
+    /* 2. SEMBUNYIKAN SEMUA KONTEN WEBSITE */
+    body * {
+        visibility: hidden;
+    }
+
+    /* 3. PAKSA TIKET TAMPIL & LEPAS DARI STRUKTUR HALAMAN */
+    .print-only {
+        position: fixed; 
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        visibility: visible !important;
+        z-index: 9999; 
+        background: white; 
+        display: flex !important;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    /* Pastikan isi tiket juga terlihat */
+    .print-only * {
+        visibility: visible !important;
+    }
+
+    /* 4. SETTING KERTAS (STRUK THERMAL 80mm) */
+    .ticket-container {
+        width: 100%;
+        max-width: 80mm;
+        margin: 0 auto;
+        padding: 5mm; 
+        text-align: center;
+        font-family: 'Courier New', Courier, monospace; 
         color: black;
     }
-    .instansi { font-size: 14pt; font-weight: bold; margin-bottom: 5px; }
-    .date { font-size: 9pt; margin-bottom: 10px; }
-    .big-number { font-size: 40pt; font-weight: 900; margin: 5px 0; }
-    .service-name { font-size: 12pt; font-weight: bold; margin-bottom: 10px; }
-    .guest-info { text-align: left; font-size: 10pt; margin: 10px 0; }
-    .guest-info p { margin: 2px 0; }
-    .dashed { border-top: 1px dashed black; margin: 10px 0; border-bottom: none; }
-    .footer-note { font-size: 9pt; margin-top: 5px; font-style: italic; }
-    @page { size: auto; margin: 0; }
+
+    /* Styling Teks Struk */
+    .instansi { font-size: 12pt; font-weight: bold; margin-bottom: 2mm; text-transform: uppercase; }
+    .date { font-size: 8pt; margin-bottom: 4mm; }
+    .dashed { border-top: 1px dashed black !important; margin: 3mm 0; border-bottom: none; display: block; }
+    
+    .label { font-size: 10pt; margin-top: 2mm; }
+    .big-number { font-size: 40pt; font-weight: 900; margin: 0; line-height: 1; }
+    .service-name { font-size: 12pt; font-weight: bold; margin-bottom: 4mm; }
+
+    .guest-info { 
+        text-align: left; 
+        font-size: 9pt; 
+        margin: 4mm 0;
+        width: 100%;
+    }
+    .guest-info p { margin: 1mm 0; }
+
+    .footer-note { font-size: 8pt; margin-top: 4mm; font-style: italic; }
+
+    /* 5. HAPUS MARGIN BROWSER */
+    @page {
+        size: auto;
+        margin: 0mm; 
+    }
 }
 </style>

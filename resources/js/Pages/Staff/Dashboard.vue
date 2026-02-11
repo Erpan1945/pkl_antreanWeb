@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { router } from '@inertiajs/vue3'
 import axios from 'axios'
 import DisplayLayout from '@/Layouts/DisplayLayout.vue';
+import { supabase } from '@/utils/supabase'; // IMPORT SUPABASE
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue';
 import { 
     Bars3Icon, 
@@ -28,12 +29,11 @@ const stats = ref(props.stats || { total: 0, finished: 0 })
 const isLoading = ref(false)
 const localWaiting = ref(props.waitingList ? props.waitingList.length : 0)
 
-let pollingInterval = null
+let realtimeChannel = null; // Channel Supabase
 
-// --- POLLING REALTIME (OPTIMIZED) ---
+// --- FETCH DATA (Dipanggil saat ada event realtime) ---
 const fetchUpdates = async () => {
   try {
-      // OPTIMIZED: Remove timestamp cache-busting (server handles cache properly)
       const res = await axios.get(`/staff/${props.counter.id}/stats`);
       
       localServing.value = res.data.currentServing;
@@ -50,32 +50,60 @@ const fetchUpdates = async () => {
       }
 
   } catch (e) {
-      console.error("Gagal polling data", e);
+      console.error("Gagal sync data", e);
   }
 }
 
+// --- SETUP REALTIME ---
+const setupRealtime = () => {
+    // Kita listen ke tabel 'queues'
+    realtimeChannel = supabase
+        .channel('staff-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => {
+            // STRATEGI: "Re-fetch on Change"
+            // Setiap ada perubahan DB (tiket baru/status berubah),
+            // kita minta data terbaru ke Laravel.
+            // Ini jauh lebih efisien daripada polling 5 detik sekali,
+            // dan lebih aman daripada logic manual JS untuk assignment loket.
+            console.log("⚡ Data berubah, menyinkronkan...");
+            fetchUpdates();
+        })
+        .subscribe();
+};
+
 onMounted(() => {
-  fetchUpdates();
-  // OPTIMIZED: Increase polling from 3s to 5s (still real-time, less network traffic)
-  pollingInterval = setInterval(fetchUpdates, 5000);
+  fetchUpdates(); // Load awal
+  setupRealtime(); // Aktifkan listener
 })
 
-onUnmounted(() => { if (pollingInterval) clearInterval(pollingInterval); })
+onUnmounted(() => { 
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+})
 
-// --- TOMBOL AKSI (OPTIMIZED) ---
+// --- TOMBOL AKSI ---
 const handleAction = async (url, payload = {}) => {
-    if (isLoading.value) return; 
-    isLoading.value = true;
+    // 1. Jangan set isLoading=true agar tombol tidak disable/loading lama
+    // isLoading.value = true; <--- HAPUS INI
+
     try {
+        // 2. Kirim perintah ke server ("Fire and Forget")
+        // Kita tidak perlu menunggu (await) fetchUpdates() di sini
+        // karena Realtime Listener akan otomatis meng-update data
+        // begitu server selesai memproses.
         await axios.post(url, { ...payload, counter_id: props.counter.id });
-        // OPTIMIZED: Fetch updates immediately after action (still faster than before)
-        await fetchUpdates(); 
+
+        // Opsional: Jika ingin UI langsung berubah seolah-olah sukses (Optimistic)
+        // Anda bisa memanipulasi waitingList.value secara manual di sini
+        // Tapi dengan Realtime Supabase yang sudah di-fix (Index), 
+        // responnya akan sangat cepat sehingga tidak perlu manual.
+        
     } catch (e) {
         console.error("Gagal aksi:", e);
-    } finally {
-        isLoading.value = false;
-    }
-}
+        alert("Gagal melakukan aksi. Cek koneksi internet.");
+    } 
+    // finally { isLoading.value = false; } <--- HAPUS INIZ
+
+};
 
 const callNext = () => handleAction('/staff/call-next')
 const recall = () => handleAction('/staff/recall')
@@ -95,12 +123,10 @@ const complete = () => {
     handleAction('/staff/complete', { queue_id: tempId });
 }
 
-// Navigasi Menu
+// Navigasi Menu & Inertia Loading
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
 
 const inertiaIsLoading = ref(false);
-
-// Gunakan DOM events Inertia (tidak perlu import '@inertiajs/inertia')
 document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
 document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
 
@@ -122,7 +148,7 @@ const logout = () => router.post('/logout');
 
           <div class="header-actions flex items-center gap-4">
               <div class="live-indicator">
-                  <span class="dot"></span> Live
+                  <span class="dot"></span> Live (Realtime)
               </div>
 
               <Menu as="div" class="relative inline-block text-left z-50">
@@ -251,8 +277,8 @@ const logout = () => router.post('/logout');
                 <div class="list-scroll">
                     <div v-if="waitingList.length > 0" class="queue-list">
                         <div v-for="(item, index) in waitingList" :key="item.id" class="queue-card" :class="{'top-card': index === 0}">
-                            <div class="q-header"><span class="q-number">{{ item.ticket_code }}</span><span class="q-service">{{ item.purpose || 'Umum' }}</span></div>
-                            <div class="q-body"><p class="q-name">{{ item.guest_name }}</p><p class="q-id">ID: {{ item.identity_number }}</p></div>
+                            <div class="q-header"><span class="q-number">{{ item.ticket_code }}</span><span class="q-service">{{ item.purpose || 'Pelayanan Umum' }}</span></div>
+                            <div class="q-body"><p class="q-name">{{ item.guest_name }}</p><p class="q-id">NRP: {{ item.identity_number }}</p></div>
                         </div>
                     </div>
                     <div v-else class="empty-state"><div class="text-4xl mb-2">☕</div><p>Tidak ada antrian menunggu</p></div>
