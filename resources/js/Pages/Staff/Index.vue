@@ -1,14 +1,13 @@
 <script setup>
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
 
 const inertiaIsLoading = ref(false);
-// Gunakan DOM events Inertia (tidak perlu import '@inertiajs/inertia')
+
 document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
 document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
 
-// Terima data dari controller
 const props = defineProps({
     counters: Array,
     auth: Object
@@ -18,9 +17,11 @@ const props = defineProps({
 <template>
     <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-6 font-sans">
         <Head title="Pilih Loket Bertugas" />
+        
+        <LoadingOverlay :show="inertiaIsLoading" message="Memuat..." />
 
-        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg text-center border-t-8 border-blue-900">
-            <LoadingOverlay :show="inertiaIsLoading" message="Memuat..." />
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg text-center border-t-8 border-blue-900 relative">
+            
             <h1 class="text-2xl font-bold text-blue-900 mb-2">
                 Halo, {{ auth.user.name }}
             </h1>
@@ -59,11 +60,7 @@ const props = defineProps({
                     KEMBALI KE ADMIN DASHBOARD
                 </Link>
 
-                <a :href="route('admin.export')" target="_blank" class="flex items-center justify-center gap-2 text-green-600 hover:text-green-800 font-bold text-sm transition py-2 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100">
-                    Download Laporan Harian
-                </a>
-
-                <Link :href="route('logout')" method="post" as="button" class="text-red-500 hover:text-red-700 font-bold text-sm transition mt-2">
+                <Link :href="route('logout')" method="post" as="button" class="text-red-500 hover:text-red-700 font-bold text-sm transition mt-2 py-2 hover:bg-red-50 rounded-lg">
                     Keluar / Logout
                 </Link>
             </div>

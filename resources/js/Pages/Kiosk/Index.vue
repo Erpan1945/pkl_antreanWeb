@@ -8,7 +8,7 @@ const printing = ref(false);
 const ticketData = ref(null);
 
 // Definisikan Opsi Dropdown di sini agar bisa dipakai untuk reset
-const defaultPurpose = 'pdth'; 
+const defaultPurpose = 'pengurusan pensiun'; 
 
 const form = ref({
     service_id: '', 

@@ -5,47 +5,65 @@
             PT ASABRI
         </div>
         
-        <div class="flex-1 overflow-hidden relative flex items-center h-full">
-            <div class="animate-marquee whitespace-nowrap flex items-center">
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
-                <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                    PT ASABRI (Persero) Melayani dengan Sepenuh Hati
-                </span>
+        <div class="flex-1 overflow-hidden relative flex items-center h-full group">
+            <div class="flex animate-marquee">
+                
+                <div class="flex shrink-0 items-center">
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                </div>
+
+                <div class="flex shrink-0 items-center">
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                    <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
+                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                    </span>
+                </div>
+
             </div>
         </div>
     </footer>
 </template>
 
 <style scoped>
-/* Animasi Running Text Smooth */
+/* Animasi Running Text Seamless */
 .animate-marquee {
-    display: inline-block;
-    animation: marquee 50s linear infinite;
+    display: flex;
+    /* Durasi disesuaikan agar kecepatan pas */
+    animation: marquee 30s linear infinite; 
 }
 
 @keyframes marquee {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-100%); }
+    0% { 
+        transform: translateX(0); 
+    }
+    100% { 
+        /* Geser hanya -50% (setengah dari total lebar karena ada 2 bagian) */
+        transform: translateX(-50%); 
+    }
+}
+
+/* Pause saat hover (Opsional, agar user bisa baca) */
+.group:hover .animate-marquee {
+    animation-play-state: paused;
 }
 
 /* Clip Path Miring (Default Desktop) */
@@ -53,7 +71,6 @@
     clip-path: polygon(0 0, 90% 0, 100% 100%, 0% 100%);
 }
 
-/* Media Query: Hilangkan miring di HP agar teks "PT ASABRI" muat */
 @media (max-width: 640px) {
     .clip-miring {
         clip-path: none !important;

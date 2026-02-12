@@ -1,10 +1,11 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { router, Link } from '@inertiajs/vue3'
 import axios from 'axios'
 import DisplayLayout from '@/Layouts/DisplayLayout.vue';
-import { supabase } from '@/utils/supabase'; // IMPORT SUPABASE
-import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue';
+import LoadingOverlay from '@/Components/LoadingOverlay.vue';
+import { supabase } from '@/utils/supabase'; 
+import { Menu, MenuButton, MenuItems, MenuItem, Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue';
 import { 
     Bars3Icon, 
     ArrowPathIcon, 
@@ -26,12 +27,50 @@ const props = defineProps({
 const localServing = ref(props.currentServing)
 const waitingList = ref(props.waitingList || [])
 const stats = ref(props.stats || { total: 0, finished: 0 })
-const isLoading = ref(false)
 const localWaiting = ref(props.waitingList ? props.waitingList.length : 0)
 
-let realtimeChannel = null; // Channel Supabase
+let realtimeChannel = null;
 
-// --- FETCH DATA (Dipanggil saat ada event realtime) ---
+// --- STATE LOADING TOMBOL (Anti-Spam) ---
+const processingAction = ref(null); 
+
+// --- LOGIC EXPORT CUSTOM ---
+const showExportModal = ref(false);
+const exportConfig = ref({
+    type: 'daily',
+    date: new Date().toISOString().split('T')[0],
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear()
+});
+
+const openExportModal = () => {
+    showExportModal.value = true;
+};
+
+const closeExportModal = () => {
+    showExportModal.value = false;
+};
+
+const processExport = () => {
+    const params = new URLSearchParams();
+    params.append('type', exportConfig.value.type);
+
+    if (exportConfig.value.type === 'daily') {
+        params.append('date', exportConfig.value.date);
+    } else if (exportConfig.value.type === 'monthly') {
+        params.append('month', exportConfig.value.month);
+        params.append('year', exportConfig.value.year);
+    } else if (exportConfig.value.type === 'yearly') {
+        params.append('year', exportConfig.value.year);
+    }
+
+    // Download via Browser
+    window.location.href = `/admin/export?${params.toString()}`;
+    
+    closeExportModal();
+};
+
+// --- DATA SYNC & REALTIME ---
 const fetchUpdates = async () => {
   try {
       const res = await axios.get(`/staff/${props.counter.id}/stats`);
@@ -54,17 +93,10 @@ const fetchUpdates = async () => {
   }
 }
 
-// --- SETUP REALTIME ---
 const setupRealtime = () => {
-    // Kita listen ke tabel 'queues'
     realtimeChannel = supabase
         .channel('staff-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => {
-            // STRATEGI: "Re-fetch on Change"
-            // Setiap ada perubahan DB (tiket baru/status berubah),
-            // kita minta data terbaru ke Laravel.
-            // Ini jauh lebih efisien daripada polling 5 detik sekali,
-            // dan lebih aman daripada logic manual JS untuk assignment loket.
             console.log("⚡ Data berubah, menyinkronkan...");
             fetchUpdates();
         })
@@ -72,8 +104,8 @@ const setupRealtime = () => {
 };
 
 onMounted(() => {
-  fetchUpdates(); // Load awal
-  setupRealtime(); // Aktifkan listener
+  fetchUpdates(); 
+  setupRealtime(); 
 })
 
 onUnmounted(() => { 
@@ -81,51 +113,41 @@ onUnmounted(() => {
 })
 
 // --- TOMBOL AKSI ---
-const handleAction = async (url, payload = {}) => {
-    // 1. Jangan set isLoading=true agar tombol tidak disable/loading lama
-    // isLoading.value = true; <--- HAPUS INI
+const handleAction = async (actionName, url, payload = {}) => {
+    if (processingAction.value) return; 
+    processingAction.value = actionName;
 
     try {
-        // 2. Kirim perintah ke server ("Fire and Forget")
-        // Kita tidak perlu menunggu (await) fetchUpdates() di sini
-        // karena Realtime Listener akan otomatis meng-update data
-        // begitu server selesai memproses.
         await axios.post(url, { ...payload, counter_id: props.counter.id });
-
-        // Opsional: Jika ingin UI langsung berubah seolah-olah sukses (Optimistic)
-        // Anda bisa memanipulasi waitingList.value secara manual di sini
-        // Tapi dengan Realtime Supabase yang sudah di-fix (Index), 
-        // responnya akan sangat cepat sehingga tidak perlu manual.
-        
     } catch (e) {
-        console.error("Gagal aksi:", e);
+        console.error(`Gagal aksi ${actionName}:`, e);
         alert("Gagal melakukan aksi. Cek koneksi internet.");
+    } finally {
+        setTimeout(() => {
+            processingAction.value = null;
+        }, 500);
     } 
-    // finally { isLoading.value = false; } <--- HAPUS INIZ
-
 };
 
-const callNext = () => handleAction('/staff/call-next')
-const recall = () => handleAction('/staff/recall')
+// Wrapper Functions
+const callNext = () => handleAction('next', '/staff/call-next');
+const recall = () => handleAction('recall', '/staff/recall');
 
-// FUNGSI LEWATI (SKIP)
 const skip = () => {
     if (!localServing.value) return;
     const tempId = localServing.value.id;
-    localServing.value = null; // Optimis UI
-    handleAction('/staff/skip', { queue_id: tempId });
+    localServing.value = null; 
+    handleAction('skip', '/staff/skip', { queue_id: tempId });
 }
 
 const complete = () => {
     if (!localServing.value) return;
     const tempId = localServing.value.id;
     localServing.value = null; 
-    handleAction('/staff/complete', { queue_id: tempId });
+    handleAction('complete', '/staff/complete', { queue_id: tempId });
 }
 
-// Navigasi Menu & Inertia Loading
-import LoadingOverlay from '@/Components/LoadingOverlay.vue';
-
+// Navigasi
 const inertiaIsLoading = ref(false);
 document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
 document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
@@ -136,7 +158,7 @@ const logout = () => router.post('/logout');
 
 <template>
   <DisplayLayout :title="`Loket ${counter.name}`">
-    <LoadingOverlay :show="isLoading || inertiaIsLoading" message="Memproses aksi..." />
+    <LoadingOverlay :show="inertiaIsLoading" message="Memuat..." />
     
     <div class="dashboard-fit-container relative">
         
@@ -158,7 +180,6 @@ const logout = () => router.post('/logout');
                         <Bars3Icon class="h-6 w-6" aria-hidden="true" />
                     </MenuButton>
                 </div>
-
                 <transition
                     enter-active-class="transition duration-100 ease-out"
                     enter-from-class="transform scale-95 opacity-0"
@@ -178,10 +199,13 @@ const logout = () => router.post('/logout');
                         </div>
                         <div class="px-1 py-1">
                             <MenuItem v-slot="{ active }">
-                                <a href="/admin/export" target="_blank" :class="[active ? 'bg-yellow-50 text-yellow-900' : 'text-gray-900', 'group flex w-full items-center rounded-md px-2 py-2 text-sm font-bold']">
+                                <button 
+                                    @click="openExportModal" 
+                                    :class="[active ? 'bg-yellow-50 text-yellow-900' : 'text-gray-900', 'group flex w-full items-center rounded-md px-2 py-2 text-sm font-bold']"
+                                >
                                     <ArrowDownTrayIcon class="mr-2 h-5 w-5 text-yellow-600" aria-hidden="true" />
-                                    Export Excel Harian
-                                </a>
+                                    Export Laporan
+                                </button>
                             </MenuItem>
                         </div>
                         <div class="px-1 py-1">
@@ -240,7 +264,7 @@ const logout = () => router.post('/logout');
                         <div class="guest-info">
                             <div class="info-col"><small>Nama</small><p>{{ localServing.guest_name }}</p></div>
                             <div class="info-col border-x"><small>NRP / ID</small><p>{{ localServing.identity_number }}</p></div>
-                            <div class="info-col"><small>Perihal</small><p>{{ localServing.purpose }}</p></div>
+                            <div class="info-col"><small>Perihal</small><p class="capitalize">{{ localServing.purpose }}</p></div>
                         </div>
                     </div>
                     <div v-else class="empty-serving">
@@ -250,20 +274,36 @@ const logout = () => router.post('/logout');
                     </div>
                     
                     <div class="control-buttons">
-                        <button class="btn-ctrl success" :disabled="!localServing || isLoading" @click="complete">
-                            ✔ Selesai
+                        <button class="btn-ctrl success" :disabled="!localServing || processingAction" @click="complete">
+                            <span v-if="processingAction === 'complete'" class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            </span>
+                            <span v-else>✔ Selesai</span>
                         </button>
 
-                        <button class="btn-ctrl danger" :disabled="!localServing || isLoading" @click="skip">
-                            🚫 Lewati
+                        <button class="btn-ctrl danger" :disabled="!localServing || processingAction" @click="skip">
+                            <span v-if="processingAction === 'skip'" class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            </span>
+                            <span v-else>🚫 Lewati</span>
                         </button>
 
-                        <button class="btn-ctrl warning" :disabled="!localServing || isLoading" @click="recall">
-                            🔔 Panggil Ulang
+                        <button class="btn-ctrl warning" :disabled="!localServing || processingAction" @click="recall">
+                            <span v-if="processingAction === 'recall'" class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            </span>
+                            <span v-else>🔔 Panggil Ulang</span>
                         </button>
 
-                        <button class="btn-ctrl primary" :disabled="isLoading" @click="callNext">
-                            <span v-if="isLoading">⏳...</span><span v-else>▶ Panggil Berikutnya</span>
+                        <button class="btn-ctrl primary" :class="{ 'opacity-75 cursor-not-allowed': processingAction === 'next' }" :disabled="processingAction" @click="callNext">
+                            <div v-if="processingAction === 'next'" class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Memproses...</span>
+                            </div>
+                            <span v-else>▶ Panggil Berikutnya</span>
                         </button>
                     </div>
                 </div>
@@ -277,7 +317,7 @@ const logout = () => router.post('/logout');
                 <div class="list-scroll">
                     <div v-if="waitingList.length > 0" class="queue-list">
                         <div v-for="(item, index) in waitingList" :key="item.id" class="queue-card" :class="{'top-card': index === 0}">
-                            <div class="q-header"><span class="q-number">{{ item.ticket_code }}</span><span class="q-service">{{ item.purpose || 'Pelayanan Umum' }}</span></div>
+                            <div class="q-header"><span class="q-number">{{ item.ticket_code }}</span><span class="q-service">{{ item.purpose || 'Umum' }}</span></div>
                             <div class="q-body"><p class="q-name">{{ item.guest_name }}</p><p class="q-id">NRP: {{ item.identity_number }}</p></div>
                         </div>
                     </div>
@@ -288,6 +328,71 @@ const logout = () => router.post('/logout');
         </section>
 
     </div>
+
+    <TransitionRoot appear :show="showExportModal" as="template">
+        <Dialog as="div" @close="closeExportModal" class="relative z-[60]">
+            <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0" enter-to="opacity-100" leave="duration-200 ease-in" leave-from="opacity-100" leave-to="opacity-0">
+                <div class="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+            </TransitionChild>
+
+            <div class="fixed inset-0 overflow-y-auto">
+                <div class="flex min-h-full items-center justify-center p-4 text-center">
+                    <TransitionChild as="template" enter="duration-300 ease-out" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100" leave="duration-200 ease-in" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+                        <DialogPanel class="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all border-t-8 border-yellow-500">
+                            <DialogTitle as="h3" class="text-lg font-bold leading-6 text-gray-900 mb-4">
+                                Pilih Periode Export
+                            </DialogTitle>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Laporan</label>
+                                    <select v-model="exportConfig.type" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                        <option value="daily">Harian (Per Tanggal)</option>
+                                        <option value="monthly">Bulanan (Per Bulan)</option>
+                                        <option value="yearly">Tahunan (Per Tahun)</option>
+                                    </select>
+                                </div>
+
+                                <div v-if="exportConfig.type === 'daily'">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Tanggal</label>
+                                    <input type="date" v-model="exportConfig.date" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                </div>
+
+                                <div v-if="exportConfig.type === 'monthly'" class="flex gap-2">
+                                    <div class="w-1/2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
+                                        <select v-model="exportConfig.month" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                            <option v-for="n in 12" :key="n" :value="n">{{ new Date(0, n-1).toLocaleString('id-ID', {month:'long'}) }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="w-1/2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
+                                        <input type="number" v-model="exportConfig.year" min="2020" max="2030" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                </div>
+
+                                <div v-if="exportConfig.type === 'yearly'">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
+                                    <input type="number" v-model="exportConfig.year" min="2020" max="2030" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <div class="mt-6 flex justify-end gap-3">
+                                <button type="button" class="inline-flex justify-center rounded-md border border-transparent bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-200 focus:outline-none" @click="closeExportModal">
+                                    Batal
+                                </button>
+                                <button type="button" class="inline-flex justify-center rounded-md border border-transparent bg-yellow-500 px-4 py-2 text-sm font-bold text-white hover:bg-yellow-600 focus:outline-none" @click="processExport">
+                                    <ArrowDownTrayIcon class="w-5 h-5 mr-2"/>
+                                    Download Excel
+                                </button>
+                            </div>
+                        </DialogPanel>
+                    </TransitionChild>
+                </div>
+            </div>
+        </Dialog>
+    </TransitionRoot>
+
   </DisplayLayout>
 </template>
 

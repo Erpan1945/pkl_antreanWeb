@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use App\Jobs\SyncQueueToGoogleSheets;
+use App\Http\Controllers\Controller;
 
 class TicketController extends Controller
 {
