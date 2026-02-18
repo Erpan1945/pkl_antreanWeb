@@ -20,8 +20,8 @@ const form = ref({
 
 // Daftar Opsi
 const purposeOptions = [
-    { value: 'pdth', label: 'PDTH' },
     { value: 'pengurusan pensiun', label: 'Pengurusan Pensiun' },
+    { value: 'pdth', label: 'PDTH' },
     { value: 'bppp', label: 'BPPP' },
     { value: 'bpi', label: 'BPI' },
     { value: 'bps', label: 'BPS' },

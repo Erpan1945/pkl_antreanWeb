@@ -67,7 +67,7 @@ const checkIndonesiaRayaTime = () => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    const targetHour = 7; const targetMinute = 27;  
+    const targetHour = 10; const targetMinute = 0;  
 
     if (hours === targetHour && minutes === targetMinute) {
         if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
