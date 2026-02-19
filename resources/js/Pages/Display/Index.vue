@@ -6,20 +6,23 @@ import { callQueue } from '@/utils/queueAudio';
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
-const videoId = ref("vHZhFmkINI8"); // Video Default ASABRI
-const indonesiaRayaId = "HKrhbLJa1JA"; // ID Video Indonesia Raya
+// Playlist video agar tidak bosan
+const playlistVideos = [
+    "vHZhFmkINI8", // Video Default ASABRI
+    "H7fAevGRHXQ", // Company Profile 2020
+    "7EJQy7gSk1c", // Sahabat Perjuangan
+    "1q9ijwlvMTQ"  // Asabri Corner
+];
+const videoId = ref(playlistVideos[0]);
+const indonesiaRayaId = "HKrhbLJa1JA"; 
 const isIndonesiaRayaPlaying = ref(false);
-const hasPlayedToday = ref(false); // Variable baru untuk pengunci
+const hasPlayedToday = ref(false); 
 
 // --- STATE UTAMA ---
 const activeQueues = ref([]);
 const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
-
-// --- STATE DINAMIS LAYAR UTAMA ---
 const currentDisplayQueue = ref(null); 
-
-// --- STATE ANTRIAN LOKAL ---
 const pendingAnnouncements = ref([]); 
 const isSpeaking = ref(false); 
 
@@ -35,8 +38,12 @@ const initPlayer = () => {
     player.value = new YT.Player('youtube-player', {
         videoId: videoId.value,
         playerVars: {
-            'autoplay': 1, 'controls': 0, 'rel': 0, 
-            'loop': 1, 'playlist': videoId.value, 'playsinline': 1,
+            'autoplay': 1, 
+            'controls': 0, 
+            'rel': 0, 
+            'loop': 1, 
+            'playlist': playlistVideos.join(','), 
+            'playsinline': 1,
             'origin': window.location.origin
         },
         events: {
@@ -67,68 +74,50 @@ const loadYoutubeAPI = () => {
     }
 };
 
-// --- LOGIKA INDONESIA RAYA (PERBAIKAN LOOP OTOMATIS) ---
 const checkIndonesiaRayaTime = () => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-
-    // Sesuaikan dengan jam target Anda (contoh 23:34)
-    const targetHour = 7;    
-    const targetMinute = 27;  
+    //SET JAM VIDIO
+    const targetHour = 2;    
+    const targetMinute = 49;  
 
     if (hours === targetHour && minutes === targetMinute) {
         if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
             if (player.value && typeof player.value.loadVideoById === 'function') {
-                console.log("MEMUTAR INDONESIA RAYA...");
-                
                 isIndonesiaRayaPlaying.value = true;
                 hasPlayedToday.value = true; 
-                
-                // Putar Indonesia Raya
                 player.value.loadVideoById(indonesiaRayaId);
                 player.value.unMute();
                 player.value.setVolume(100);
                 player.value.playVideo();
 
-                // --- Di dalam fungsi checkIndonesiaRayaTime ---
+                    setTimeout(() => {
+            // 1. Mengembalikan variabel status ke false (KUNCI UTAMA)
+            isIndonesiaRayaPlaying.value = false; 
 
-               // --- Di dalam fungsi checkIndonesiaRayaTime ---
-
-                                // --- Di dalam fungsi checkIndonesiaRayaTime ---
-
-                setTimeout(() => {
-                    console.log("KEMBALI KE ASABRI DAN LOCK PLAYLIST");
-                    
-                    if (player.value) {
-                        // Kita paksa muat ulang sebagai PLAYLIST tunggal agar YouTube tidak punya pilihan video lain
-                        player.value.loadPlaylist({
-                            playlist: [videoId.value], // Hanya isi ID video ASABRI
-                            listType: 'playlist',
-                            index: 0,
-                            startSeconds: 0
-                        });
-
-                        // Setel ulang agar terus mengulang playlist yang isinya cuma 1 video ini
-                        player.value.setLoop(true);
-                        
-                        // Pastikan suara kembali normal jika tadi sempat dikecilkan
-                        player.value.unMute();
-                        player.value.setVolume(100);
-                    }
-
-                    isIndonesiaRayaPlaying.value = false;
-                }, 133000); // 132 detik (2:12)
+            if (player.value) {
+                // 2. Memuat ulang playlist agar video kembali berganti-ganti
+                player.value.loadPlaylist({
+                    playlist: playlistVideos,
+                    listType: 'playlist',
+                    index: 0,
+                    startSeconds: 0
+                });
+                
+                // 3. Memastikan suara kembali normal
+                player.value.unMute();
+                player.value.setVolume(100);
             }
+        }, 133000); // 133 detik sesuai durasi video Indonesia Raya Anda
+                    }
         }
     }
-
     if (minutes !== targetMinute) {
         hasPlayedToday.value = false;
     }
 };
 
-// --- 3. PROCESSOR ANTRIAN ---
 const playNextAnnouncement = () => {
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
@@ -137,34 +126,27 @@ const playNextAnnouncement = () => {
         }
         return;
     }
-
     isSpeaking.value = true;
     if (player.value && typeof player.value.setVolume === 'function') {
         player.value.setVolume(10); 
     }
-
     const queueData = pendingAnnouncements.value.shift();
     currentDisplayQueue.value = queueData.originalData;
-
     callQueue(queueData.announcement, () => {
         playNextAnnouncement();
     });
 };
 
-// --- 4. FETCH DATA ---
 const fetchData = async () => {
     try {
         const { data } = await axios.get('/display/data');
         activeQueues.value = data;
-
         if (!data.length || !isAudioEnabled.value) return;
-
         if (isFirstLoad) {
             data.forEach(q => processedState.value.set(q.id, q.updated_at));
             isFirstLoad = false;
             return;
         }
-
         const newCandidates = [];
         data.forEach(queue => {
             const lastTime = processedState.value.get(queue.id);
@@ -173,7 +155,6 @@ const fetchData = async () => {
                 processedState.value.set(queue.id, queue.updated_at);
             }
         });
-
         if (newCandidates.length > 0) {
             newCandidates.sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
             newCandidates.forEach(queue => {
@@ -181,7 +162,6 @@ const fetchData = async () => {
                 const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
                 const numberOnly = rawCode.replace(/\D/g, ''); 
                 const cleanedNumber = parseInt(numberOnly, 10).toString();
-
                 pendingAnnouncements.value.push({
                     announcement: {
                         prefix: prefix,
@@ -191,7 +171,6 @@ const fetchData = async () => {
                     originalData: queue 
                 });
             });
-
             if (!isSpeaking.value) {
                 playNextAnnouncement();
             }
@@ -214,7 +193,6 @@ const enableAudio = () => {
 };
 
 const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'waiting').slice(0, 3));
-
 const currentTime = ref('');
 const currentDate = ref('');
 const updateTime = () => {
@@ -267,7 +245,7 @@ onUnmounted(() => {
         </header>
 
         <main class="flex-1 flex overflow-hidden relative bg-[#f8f9fa]">
-            <div class="w-[55%] flex flex-col p-6 gap-6 justify-center">
+            <div v-if="!isIndonesiaRayaPlaying" class="w-[55%] flex flex-col p-6 gap-6 justify-center">
                 <div class="bg-[#ffc107] rounded-[30px] border-[12px] border-[#00569c] shadow-2xl p-8 relative flex items-center justify-between h-[400px]">
                     <div class="flex flex-col items-start pl-4">
                         <h2 class="text-2xl font-black text-[#00569c] uppercase tracking-widest mb-2">NOMOR ANTRIAN</h2>
@@ -308,9 +286,9 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <div class="w-[45%] p-6 pl-0 flex items-center">
-                <div class="w-full h-full bg-black rounded-[30px] overflow-hidden shadow-2xl border-4 border-[#ffc107] relative">
-                    <div id="youtube-player" class="w-full h-full scale-[1.3] pointer-events-none"></div>
+            <div :class="[isIndonesiaRayaPlaying ? 'fixed inset-0 z-[100] p-0 bg-black' : 'w-[45%] p-6 pl-0']" class="flex items-center justify-center transition-all duration-700 ease-in-out">
+                <div :class="[isIndonesiaRayaPlaying ? 'rounded-0 border-0' : 'rounded-[30px] border-4 border-[#ffc107] shadow-2xl']" class="w-full h-full bg-black overflow-hidden relative flex items-center justify-center">
+                    <div id="youtube-player" class="w-full h-full pointer-events-none"></div>
                     <div class="absolute inset-0 bg-transparent z-10"></div>
                 </div>
             </div>
@@ -322,7 +300,7 @@ onUnmounted(() => {
             </div>
             <div class="flex-1 flex items-center overflow-hidden">
                 <marquee class="text-xl font-bold text-white uppercase" scrollamount="8">
-                    PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati
+                    PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati • PT Asabri (Persero) l Melayani dengan Sepenuh Hati
                 </marquee>
             </div>
         </footer>
@@ -336,11 +314,7 @@ onUnmounted(() => {
                     <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
                     <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
                 </div>
-                <button @click="enableAudio" 
-                    class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
-                    <svg class="w-10 h-10 mr-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
-                    </svg>
+                <button @click="enableAudio" class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-lg">
                     <span>MULAI DISPLAY TV</span>
                 </button>
             </div>
@@ -350,4 +324,11 @@ onUnmounted(() => {
 
 <style scoped>
 .font-mono { font-family: 'Courier New', Courier, monospace; }
+
+/* Menambah CSS agar video YouTube selalu mengisi area secara proporsional */
+#youtube-player {
+    object-fit: contain; /* Video akan muat di layar tanpa terpotong */
+    width: 100%;
+    height: 100%;
+}
 </style>
