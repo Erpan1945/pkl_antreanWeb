@@ -6,12 +6,11 @@ import { callQueue } from '@/utils/queueAudio';
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
-// Playlist video agar tidak bosan
 const playlistVideos = [
-    "vHZhFmkINI8", // Video Default ASABRI
-    "H7fAevGRHXQ", // Company Profile 2020
-    "7EJQy7gSk1c", // Sahabat Perjuangan
-    "1q9ijwlvMTQ"  // Asabri Corner
+    "vHZhFmkINI8", 
+    "H7fAevGRHXQ", 
+    "7EJQy7gSk1c", 
+    "1q9ijwlvMTQ" 
 ];
 const videoId = ref(playlistVideos[0]);
 const indonesiaRayaId = "HKrhbLJa1JA"; 
@@ -36,12 +35,17 @@ const initPlayer = () => {
     }
 
     player.value = new YT.Player('youtube-player', {
+        width: '100%',  // Ubah ini
+        height: '100%', // Ubah ini
         videoId: videoId.value,
         playerVars: {
-            'autoplay': 1, 
-            'controls': 0, 
+            'autoplay': 1,
+            'controls': 0,
+            // ... sisa kode lainnya tetap sama
             'rel': 0, 
             'loop': 1, 
+            'modestbranding': 1, 
+            'iv_load_policy': 3, 
             'playlist': playlistVideos.join(','), 
             'playsinline': 1,
             'origin': window.location.origin
@@ -49,14 +53,36 @@ const initPlayer = () => {
         events: {
             'onReady': (event) => {
                 event.target.setVolume(100);
-                event.target.mute();
                 if(isAudioEnabled.value) {
                     event.target.unMute();
                     event.target.playVideo();
                 }
+            },
+            // KUNCI: Deteksi otomatis saat video selesai
+            'onStateChange': (event) => {
+                // Jika video SELESAI (0) dan saat itu sedang putar Indonesia Raya
+                if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) {
+                    stopIndonesiaRayaAndPlayQueue();
+                }
             }
         }
     });
+};
+
+// Fungsi transisi instan tanpa jeda
+const stopIndonesiaRayaAndPlayQueue = () => {
+    isIndonesiaRayaPlaying.value = false;
+    if (player.value) {
+        // Langsung balikkan ke playlist utama
+        player.value.loadPlaylist({
+            playlist: playlistVideos,
+            listType: 'playlist',
+            index: 0,
+            startSeconds: 0
+        });
+        player.value.unMute();
+        player.value.setVolume(100);
+    }
 };
 
 const loadYoutubeAPI = () => {
@@ -78,39 +104,22 @@ const checkIndonesiaRayaTime = () => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    //SET JAM VIDIO
-    const targetHour = 2;    
-    const targetMinute = 49;  
+    
+    // Jam tayang (Sesuaikan di sini)
+    const targetHour = 4;    
+    const targetMinute = 30;  
 
     if (hours === targetHour && minutes === targetMinute) {
         if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
             if (player.value && typeof player.value.loadVideoById === 'function') {
                 isIndonesiaRayaPlaying.value = true;
                 hasPlayedToday.value = true; 
+                
                 player.value.loadVideoById(indonesiaRayaId);
                 player.value.unMute();
                 player.value.setVolume(100);
                 player.value.playVideo();
-
-                    setTimeout(() => {
-            // 1. Mengembalikan variabel status ke false (KUNCI UTAMA)
-            isIndonesiaRayaPlaying.value = false; 
-
-            if (player.value) {
-                // 2. Memuat ulang playlist agar video kembali berganti-ganti
-                player.value.loadPlaylist({
-                    playlist: playlistVideos,
-                    listType: 'playlist',
-                    index: 0,
-                    startSeconds: 0
-                });
-                
-                // 3. Memastikan suara kembali normal
-                player.value.unMute();
-                player.value.setVolume(100);
             }
-        }, 133000); // 133 detik sesuai durasi video Indonesia Raya Anda
-                    }
         }
     }
     if (minutes !== targetMinute) {
@@ -288,7 +297,7 @@ onUnmounted(() => {
 
             <div :class="[isIndonesiaRayaPlaying ? 'fixed inset-0 z-[100] p-0 bg-black' : 'w-[45%] p-6 pl-0']" class="flex items-center justify-center transition-all duration-700 ease-in-out">
                 <div :class="[isIndonesiaRayaPlaying ? 'rounded-0 border-0' : 'rounded-[30px] border-4 border-[#ffc107] shadow-2xl']" class="w-full h-full bg-black overflow-hidden relative flex items-center justify-center">
-                    <div id="youtube-player" class="w-full h-full pointer-events-none"></div>
+                    <div id="youtube-player" class="absolute pointer-events-none"></div>
                     <div class="absolute inset-0 bg-transparent z-10"></div>
                 </div>
             </div>
@@ -325,10 +334,31 @@ onUnmounted(() => {
 <style scoped>
 .font-mono { font-family: 'Courier New', Courier, monospace; }
 
-/* Menambah CSS agar video YouTube selalu mengisi area secara proporsional */
+/* Menjamin container hitam tetap pada ukurannya */
+.w-full.h-full.bg-black.overflow-hidden.relative {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Memaksa Iframe YouTube untuk memenuhi layar secara proporsional */
 #youtube-player {
-    object-fit: contain; /* Video akan muat di layar tanpa terpotong */
-    width: 100%;
-    height: 100%;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) scale(1.3); /* Scale 1.3 untuk zoom & potong UI YouTube */
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    aspect-ratio: 16 / 9; /* Menjaga rasio tetap 16:9 */
+}
+
+/* Memastikan elemen iframe yang digenerate otomatis juga kena */
+:deep(iframe) {
+    width: 100% !important;
+    height: 100% !important;
+    border: none;
 }
 </style>
