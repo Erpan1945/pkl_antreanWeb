@@ -6,7 +6,13 @@ import DisplayLayout from '@/Layouts/DisplayLayout.vue';
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
-const videoId = ref("vHZhFmkINI8"); 
+const playlistVideos = [
+    "vHZhFmkINI8", 
+    "H7fAevGRHXQ", 
+    "7EJQy7gSk1c", 
+    "1q9ijwlvMTQ" 
+];
+const videoId = ref(playlistVideos[0]);
 const indonesiaRayaId = "HKrhbLJa1JA"; 
 const isIndonesiaRayaPlaying = ref(false);
 const hasPlayedToday = ref(false); 
@@ -15,11 +21,7 @@ const hasPlayedToday = ref(false);
 const activeQueues = ref([]);
 const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
-
-// --- STATE DINAMIS LAYAR UTAMA ---
 const currentDisplayQueue = ref(null); 
-
-// --- STATE ANTRIAN LOKAL ---
 const pendingAnnouncements = ref([]); 
 const isSpeaking = ref(false); 
 
@@ -34,19 +36,54 @@ const initPlayer = () => {
     }
     
     player.value = new YT.Player('youtube-player', {
+        width: '100%',  // Ubah ini
+        height: '100%', // Ubah ini
         videoId: videoId.value,
-        playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'loop': 1, 'playlist': videoId.value, 'playsinline': 1, 'origin': window.location.origin },
+        playerVars: {
+            'autoplay': 1,
+            'controls': 0,
+            // ... sisa kode lainnya tetap sama
+            'rel': 0, 
+            'loop': 1, 
+            'modestbranding': 1, 
+            'iv_load_policy': 3, 
+            'playlist': playlistVideos.join(','), 
+            'playsinline': 1,
+            'origin': window.location.origin
+        },
         events: {
             'onReady': (event) => {
                 event.target.setVolume(100);
-                event.target.mute();
-                if(isAudioEnabled.value) { event.target.unMute(); event.target.playVideo(); }
+                if(isAudioEnabled.value) {
+                    event.target.unMute();
+                    event.target.playVideo();
+                }
             },
+            // KUNCI: Deteksi otomatis saat video selesai
             'onStateChange': (event) => {
-                if (event.data === YT.PlayerState.ENDED && !isIndonesiaRayaPlaying.value) { player.value.playVideo(); }
+                // Jika video SELESAI (0) dan saat itu sedang putar Indonesia Raya
+                if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) {
+                    stopIndonesiaRayaAndPlayQueue();
+                }
             }
         }
     });
+};
+
+// Fungsi transisi instan tanpa jeda
+const stopIndonesiaRayaAndPlayQueue = () => {
+    isIndonesiaRayaPlaying.value = false;
+    if (player.value) {
+        // Langsung balikkan ke playlist utama
+        player.value.loadPlaylist({
+            playlist: playlistVideos,
+            listType: 'playlist',
+            index: 0,
+            startSeconds: 0
+        });
+        player.value.unMute();
+        player.value.setVolume(100);
+    }
 };
 
 const loadYoutubeAPI = () => {
@@ -62,60 +99,58 @@ const loadYoutubeAPI = () => {
     }
 };
 
-// --- LOGIKA INDONESIA RAYA (TETAP) ---
+// --- LOGIKA INDONESIA RAYA (PERBAIKAN LOOP OTOMATIS) ---
 const checkIndonesiaRayaTime = () => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    const targetHour = 10; const targetMinute = 0;  
+
+    // Sesuaikan dengan jam target Anda (contoh 23:34)
+    const targetHour = 7;    
+    const targetMinute = 27;  
 
     if (hours === targetHour && minutes === targetMinute) {
         if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
             if (player.value && typeof player.value.loadVideoById === 'function') {
-                console.log("MEMUTAR INDONESIA RAYA...");
                 isIndonesiaRayaPlaying.value = true;
                 hasPlayedToday.value = true; 
+                
                 player.value.loadVideoById(indonesiaRayaId);
                 player.value.unMute();
                 player.value.setVolume(100);
                 player.value.playVideo();
-                setTimeout(() => {
-                    console.log("KEMBALI KE ASABRI DAN LOCK PLAYLIST");
-                    if (player.value) {
-                        player.value.loadPlaylist({ playlist: [videoId.value], listType: 'playlist', index: 0, startSeconds: 0 });
-                        player.value.setLoop(true);
-                        player.value.unMute();
-                        player.value.setVolume(100);
-                    }
-                    isIndonesiaRayaPlaying.value = false;
-                }, 133000); 
             }
         }
     }
-    if (minutes !== targetMinute) { hasPlayedToday.value = false; }
+    if (minutes !== targetMinute) {
+        hasPlayedToday.value = false;
+    }
 };
 
-// --- PROCESSOR ANTRIAN (TETAP) ---
 const playNextAnnouncement = () => {
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
         if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(100);
         return;
     }
-
     isSpeaking.value = true;
-    if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(10); 
-
+    if (player.value && typeof player.value.setVolume === 'function') {
+        player.value.setVolume(10); 
+    }
     const queueData = pendingAnnouncements.value.shift();
     currentDisplayQueue.value = queueData.originalData;
-
     callQueue(queueData.announcement, () => {
         playNextAnnouncement();
     });
 };
 
+const fetchData = async () => {
 const fetchInitialData = async () => {
     try {
+        const { data } = await axios.get('/display/data');
+        activeQueues.value = data;
+        if (!data.length || !isAudioEnabled.value) return;
+        if (isFirstLoad) {
         console.log("🔍 Mengambil data antrian hari ini...");
 
         // 1. Buat format tanggal hari ini (YYYY-MM-DD)
@@ -228,6 +263,15 @@ const enableAudio = () => {
 
 const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'waiting').slice(0, 3));
 
+const currentTime = ref('');
+const currentDate = ref('');
+const updateTime = () => {
+    const now = new Date();
+    currentTime.value = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    currentDate.value = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    checkIndonesiaRayaTime();
+};
+
 onMounted(() => {
     // Preload audio assets
     preloadCommonAudio().catch(() => {});
@@ -302,9 +346,9 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <div class="w-[45%] p-6 pl-0 flex items-center">
-                <div class="w-full h-full bg-black rounded-[30px] overflow-hidden shadow-2xl border-4 border-[#ffc107] relative">
-                    <div id="youtube-player" class="w-full h-full scale-[1.3] pointer-events-none"></div>
+            <div :class="[isIndonesiaRayaPlaying ? 'fixed inset-0 z-[100] p-0 bg-black' : 'w-[45%] p-6 pl-0']" class="flex items-center justify-center transition-all duration-700 ease-in-out">
+                <div :class="[isIndonesiaRayaPlaying ? 'rounded-0 border-0' : 'rounded-[30px] border-4 border-[#ffc107] shadow-2xl']" class="w-full h-full bg-black overflow-hidden relative flex items-center justify-center">
+                    <div id="youtube-player" class="absolute pointer-events-none"></div>
                     <div class="absolute inset-0 bg-transparent z-10"></div>
                 </div>
             </div>
@@ -319,11 +363,7 @@ onUnmounted(() => {
                     <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
                     <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
                 </div>
-                <button @click="enableAudio" 
-                    class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-[0_0_50px_rgba(255,255,255,0.2)]">
-                    <svg class="w-10 h-10 mr-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
-                    </svg>
+                <button @click="enableAudio" class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-lg">
                     <span>MULAI DISPLAY TV</span>
                 </button>
             </div>
@@ -334,4 +374,32 @@ onUnmounted(() => {
 
 <style scoped>
 .font-mono { font-family: 'Courier New', Courier, monospace; }
+
+/* Menjamin container hitam tetap pada ukurannya */
+.w-full.h-full.bg-black.overflow-hidden.relative {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Memaksa Iframe YouTube untuk memenuhi layar secara proporsional */
+#youtube-player {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) scale(1.3); /* Scale 1.3 untuk zoom & potong UI YouTube */
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    aspect-ratio: 16 / 9; /* Menjaga rasio tetap 16:9 */
+}
+
+/* Memastikan elemen iframe yang digenerate otomatis juga kena */
+:deep(iframe) {
+    width: 100% !important;
+    height: 100% !important;
+    border: none;
+}
 </style>
