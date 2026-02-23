@@ -33,7 +33,7 @@ const props = defineProps({
                 <div v-for="counter in counters" :key="counter.id">
                     <Link 
                         :href="route('staff.dashboard', counter.id)"
-                        class="group block w-full py-4 px-6 bg-blue-50 border-2 border-blue-200 rounded-xl text-blue-900 font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:shadow-lg transition-all transform active:scale-95 flex justify-between items-center"
+                        class="group w-full py-4 px-6 bg-blue-50 border-2 border-blue-200 rounded-xl text-blue-900 font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:shadow-lg transition-all transform active:scale-95 flex justify-between items-center"
                     >
                         <span>{{ counter.name }}</span>
                         <span class="bg-blue-200 text-blue-800 group-hover:bg-white group-hover:text-blue-600 py-1 px-3 rounded-lg text-xs">

@@ -1,11 +1,12 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { supabase } from '@/utils/supabase'; // Ganti Axios dengan Supabase
+import { supabase } from '@/utils/supabase'; 
 import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; 
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
+
 const playlistVideos = [
     "vHZhFmkINI8", 
     "H7fAevGRHXQ", 
@@ -29,20 +30,19 @@ let isFirstLoad = true;
 let timeInterval = null;
 let realtimeChannel = null; // Channel Realtime Supabase
 
-// --- YOUTUBE API LOGIC (TETAP) ---
+// --- YOUTUBE API LOGIC ---
 const initPlayer = () => {
     if (player.value && typeof player.value.destroy === 'function') { 
         try { player.value.destroy(); } catch(e) { console.error(e); } 
     }
     
     player.value = new YT.Player('youtube-player', {
-        width: '100%',  // Ubah ini
-        height: '100%', // Ubah ini
+        width: '100%',
+        height: '100%',
         videoId: videoId.value,
         playerVars: {
             'autoplay': 1,
             'controls': 0,
-            // ... sisa kode lainnya tetap sama
             'rel': 0, 
             'loop': 1, 
             'modestbranding': 1, 
@@ -59,8 +59,8 @@ const initPlayer = () => {
                     event.target.playVideo();
                 }
             },
-            // KUNCI: Deteksi otomatis saat video selesai
             'onStateChange': (event) => {
+                // KUNCI: Deteksi otomatis saat video selesai
                 // Jika video SELESAI (0) dan saat itu sedang putar Indonesia Raya
                 if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) {
                     stopIndonesiaRayaAndPlayQueue();
@@ -99,19 +99,19 @@ const loadYoutubeAPI = () => {
     }
 };
 
-// --- LOGIKA INDONESIA RAYA (PERBAIKAN LOOP OTOMATIS) ---
 const checkIndonesiaRayaTime = () => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-
-    // Sesuaikan dengan jam target Anda (contoh 23:34)
-    const targetHour = 7;    
-    const targetMinute = 27;  
+    
+    // Jam tayang (Sesuaikan di sini)
+    const targetHour = 10;    
+    const targetMinute = 0;  
 
     if (hours === targetHour && minutes === targetMinute) {
         if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
             if (player.value && typeof player.value.loadVideoById === 'function') {
+                console.log("MEMUTAR INDONESIA RAYA...");
                 isIndonesiaRayaPlaying.value = true;
                 hasPlayedToday.value = true; 
                 
@@ -119,6 +119,14 @@ const checkIndonesiaRayaTime = () => {
                 player.value.unMute();
                 player.value.setVolume(100);
                 player.value.playVideo();
+                
+                // Fallback timeout in case onStateChange ENDED event fails to fire
+                setTimeout(() => {
+                    console.log("KEMBALI KE ASABRI (FALLBACK)");
+                    if (isIndonesiaRayaPlaying.value) {
+                         stopIndonesiaRayaAndPlayQueue();
+                    }
+                }, 133000); 
             }
         }
     }
@@ -127,6 +135,7 @@ const checkIndonesiaRayaTime = () => {
     }
 };
 
+// --- PROCESSOR ANTRIAN ---
 const playNextAnnouncement = () => {
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
@@ -144,13 +153,8 @@ const playNextAnnouncement = () => {
     });
 };
 
-const fetchData = async () => {
 const fetchInitialData = async () => {
     try {
-        const { data } = await axios.get('/display/data');
-        activeQueues.value = data;
-        if (!data.length || !isAudioEnabled.value) return;
-        if (isFirstLoad) {
         console.log("🔍 Mengambil data antrian hari ini...");
 
         // 1. Buat format tanggal hari ini (YYYY-MM-DD)
@@ -158,12 +162,12 @@ const fetchInitialData = async () => {
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`; // Contoh: "2023-10-27"
+        const todayStr = `${year}-${month}-${day}`; 
 
         const { data, error } = await supabase
             .from('queues')
             .select('*, counter:counters ( id, name )')
-            .gte('created_at', `${todayStr}T00:00:00`) // <--- FILTER PENTING: Hanya data mulai hari ini
+            .gte('created_at', `${todayStr}T00:00:00`) // Hanya data mulai hari ini
             .order('created_at', { ascending: true });
 
         if (error) {
@@ -196,9 +200,7 @@ const setupRealtime = () => {
                 return;
             }
 
-            // Jika INSERT/UPDATE, kita fetch ulang row tsb supaya dapat data relasi 'counter'
-            // Karena payload realtime raw biasanya tidak membawa data relasi
-           const { data: fullData } = await supabase
+            const { data: fullData } = await supabase
                 .from('queues')
                 .select('*, counter:counters ( id, name )') 
                 .eq('id', newData.id)
@@ -215,21 +217,18 @@ const setupRealtime = () => {
                     activeQueues.value[index] = fullData;
                 }
 
-                // --- LOGIC AUDIO ANNOUNCEMENT (TETAP) ---
+                // --- LOGIC AUDIO ANNOUNCEMENT ---
                 const lastTime = processedState.value.get(fullData.id);
                 
-                // Cek jika status 'called' DAN (belum pernah bunyi ATAU waktu update baru)
                 if ((!lastTime || fullData.updated_at > lastTime) && fullData.status === 'called') {
                     
                     processedState.value.set(fullData.id, fullData.updated_at);
                     
-                    // Parsing nomor tiket (sesuai logic asli Anda)
                     const rawCode = fullData.ticket_code || fullData.number || '000'; 
                     const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
                     const numberOnly = rawCode.replace(/\D/g, ''); 
                     const cleanedNumber = parseInt(numberOnly, 10).toString();
                     
-                    // Masukkan ke antrian bunyi
                     pendingAnnouncements.value.push({
                         announcement: { 
                             prefix, 
@@ -239,7 +238,6 @@ const setupRealtime = () => {
                         originalData: fullData
                     });
 
-                    // Bunyikan jika tidak sedang bicara
                     if (!isSpeaking.value) playNextAnnouncement();
                 }
             }
@@ -263,15 +261,6 @@ const enableAudio = () => {
 
 const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'waiting').slice(0, 3));
 
-const currentTime = ref('');
-const currentDate = ref('');
-const updateTime = () => {
-    const now = new Date();
-    currentTime.value = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    currentDate.value = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    checkIndonesiaRayaTime();
-};
-
 onMounted(() => {
     // Preload audio assets
     preloadCommonAudio().catch(() => {});
@@ -282,12 +271,12 @@ onMounted(() => {
     fetchInitialData(); // 1. Ambil data awal sekali saja
     setupRealtime();    // 2. Aktifkan listener realtime
 
-    // Interval YouTube tetap jalan
+    // Interval YouTube tetap jalan untuk mengecek jadwal Indonesia Raya
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 });
 
 onUnmounted(() => {
-    // Hapus interval YouTube
+    // Hapus interval
     clearInterval(timeInterval);
     
     // Matikan Realtime
@@ -300,10 +289,8 @@ onUnmounted(() => {
 <template>
     <DisplayLayout title="Display Antrian ASABRI">
         
-        <div class="w-full h-full flex bg-gray-50">
-            
-            <div class="w-[55%] flex flex-col p-6 gap-6 justify-center">
-                
+        <div class="w-full h-full flex overflow-hidden relative bg-[#f8f9fa]">
+            <div v-if="!isIndonesiaRayaPlaying" class="w-[55%] flex flex-col p-6 gap-6 justify-center">
                 <div class="bg-[#ffc107] rounded-[30px] border-[12px] border-[#00569c] shadow-2xl p-8 relative flex items-center justify-between h-[400px]">
                     <div class="flex flex-col items-start pl-4">
                         <h2 class="text-2xl font-black text-[#00569c] uppercase tracking-widest mb-2">NOMOR ANTRIAN</h2>
