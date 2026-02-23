@@ -78,7 +78,7 @@ const submitTicket = async () => {
                 ticketData.value = null;
                 printing.value = false;
             }, 500); 
-        }, 300);
+        }, 1000);
 
     } catch (error) {
         console.error(error);
@@ -164,6 +164,7 @@ const submitTicket = async () => {
 
         <div v-if="ticketData" class="print-only hidden">
             <div class="ticket-container">
+                <img src="/images/logo-asabri-dark.png" alt="Logol ASABRI" class="ticket-logo" /> 
                 <h2 class="instansi">PT ASABRI KC MALANG</h2>
                 <p class="date">{{ ticketData.date }}</p>
                 <hr class="dashed" />
@@ -182,6 +183,8 @@ const submitTicket = async () => {
             </div>
         </div>
 
+        <img src="/images/logo-asabri-dark.png" style="display: none;" alt="preload logo" />
+
     </DisplayLayout>
 </template>
 
@@ -190,11 +193,9 @@ const submitTicket = async () => {
 @media print {
     /* 1. RESET HALAMAN GLOBAL */
     html, body {
-        width: 100%;
-        height: 100%;
+        width: 58mm; /* Ubah ke lebar thermal */
         margin: 0 !important;
         padding: 0 !important;
-        overflow: hidden; 
     }
 
     /* 2. SEMBUNYIKAN SEMUA KONTEN WEBSITE */
@@ -222,19 +223,30 @@ const submitTicket = async () => {
         visibility: visible !important;
     }
 
-    /* 4. SETTING KERTAS (STRUK THERMAL 80mm) */
+   /* 4. SETTING KERTAS (STRUK THERMAL 58mm) */
     .ticket-container {
         width: 100%;
-        max-width: 80mm;
-        margin: 0 auto;
-        padding: 5mm; 
+        max-width: 58mm;
+        margin: 0;
+        padding: 2mm; /* Kecilkan padding agar tidak memakan banyak kertas */
         text-align: center;
         font-family: 'Courier New', Courier, monospace; 
         color: black;
     }
 
+    .ticket-logo {
+        width: 50%;         /* Atur lebar logo sekitar setengah lebar kertas (bisa disesuaikan: 40%-70%) */
+        height: auto;        /* Jaga proporsi gambar */
+        margin: 0 auto 2mm;  /* Posisi tengah horizontal, beri jarak 2mm di bawahnya */
+        display: block;      /* Memastikan margin auto berfungsi untuk centering */
+        
+        /* Opsional: Jika printer thermal Anda hitam putih dan hasil cetak warna kurang bagus, 
+           Anda bisa memaksa gambar jadi grayscale */
+        /* filter: grayscale(100%); */
+    }
+
     /* Styling Teks Struk */
-    .instansi { font-size: 12pt; font-weight: bold; margin-bottom: 2mm; text-transform: uppercase; }
+    .instansi { font-size: 12pt; font-weight: bold; margin-bottom: 2mm; text-transform: uppercase; margin-top: 1mm;}
     .date { font-size: 8pt; margin-bottom: 4mm; }
     .dashed { border-top: 1px dashed black !important; margin: 3mm 0; border-bottom: none; display: block; }
     
@@ -247,14 +259,15 @@ const submitTicket = async () => {
         font-size: 9pt; 
         margin: 4mm 0;
         width: 100%;
+        font-weight: bold;
     }
     .guest-info p { margin: 1mm 0; }
 
     .footer-note { font-size: 8pt; margin-top: 4mm; font-style: italic; }
 
-    /* 5. HAPUS MARGIN BROWSER */
+    /* 5. HAPUS MARGIN BROWSER & ATUR UKURAN KERTAS */
     @page {
-        size: auto;
+        size: 58mm auto;
         margin: 0mm; 
     }
 }
