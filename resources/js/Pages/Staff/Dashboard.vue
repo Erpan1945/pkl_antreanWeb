@@ -56,10 +56,15 @@ let polling = null;
 onMounted(() => {
     // Meminta update data dari Controller secara diam-diam setiap 3 detik
     polling = setInterval(() => {
+        isBackgroundRefreshing.value = true; // <-- Aktifkan mode latar belakang
+
         router.reload({
             only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
             preserveScroll: true, 
-            preserveState: true   
+            preserveState: true,
+            onFinish: () => {
+                isBackgroundRefreshing.value = false; // <-- Matikan setelah selesai
+            }
         });
     }, 3000);
 });
@@ -71,15 +76,17 @@ onUnmounted(() => {
 
 // --- TOMBOL AKSI ---
 const handleAction = async (actionName, url, payload = {}) => {
-    if (processingAction.value) return; 
-    processingAction.value = actionName;
+    if (processingAction.value) return; // Mencegah klik ganda jika masih proses
+    processingAction.value = actionName; // Menyalakan status loading
 
     try {
         await axios.post(url, { ...payload, counter_id: props.counter.id });
+        // Setelah sukses, Inertia Polling akan otomatis memperbarui tampilan
     } catch (e) {
         console.error(`Gagal aksi ${actionName}:`, e);
-        alert("Gagal melakukan aksi. Cek koneksi internet.");
+        alert("Gagal melakukan aksi. Cek koneksi server lokal.");
     } finally {
+        // Beri jeda 500ms agar animasi loading terlihat halus sebelum tombol normal kembali
         setTimeout(() => {
             processingAction.value = null;
         }, 500);
@@ -104,7 +111,14 @@ const complete = () => {
 
 // Navigasi
 const inertiaIsLoading = ref(false);
-document.addEventListener('inertia:start', () => (inertiaIsLoading.value = true));
+const isBackgroundRefreshing = ref(false);
+const processingAction = ref(null);
+document.addEventListener('inertia:start', () => {
+    // Hanya tampilkan loading jika BUKAN refresh latar belakang
+    if (!isBackgroundRefreshing.value) {
+        inertiaIsLoading.value = true;
+    }
+});
 document.addEventListener('inertia:finish', () => (inertiaIsLoading.value = false));
 
 const changeCounter = () => router.get('/staff');
@@ -229,33 +243,48 @@ const logout = () => router.post('/logout');
                     </div>
                     
                     <div class="control-buttons">
-                        <button class="btn-ctrl success" :disabled="!localServing || processingAction" @click="complete">
+                        <button 
+                            class="btn-ctrl success" 
+                            :class="{ 'opacity-50 cursor-not-allowed': processingAction === 'complete' }"
+                            :disabled="!localServing || processingAction" 
+                            @click="complete"
+                        >
                             <span v-if="processingAction === 'complete'" class="flex items-center justify-center gap-2">
                                 <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span>Memproses...</span>
                             </span>
                             <span v-else>✔ Selesai</span>
                         </button>
 
-                        <button class="btn-ctrl danger" :disabled="!localServing || processingAction" @click="skip">
+                        <button 
+                            class="btn-ctrl danger" 
+                            :class="{ 'opacity-50 cursor-not-allowed': processingAction === 'skip' }"
+                            :disabled="!localServing || processingAction" 
+                            @click="skip"
+                        >
                             <span v-if="processingAction === 'skip'" class="flex items-center justify-center gap-2">
                                 <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span>Memproses...</span>
                             </span>
                             <span v-else>🚫 Lewati</span>
                         </button>
 
-                        <button class="btn-ctrl warning" :disabled="!localServing || processingAction" @click="recall">
+                        <button 
+                            class="btn-ctrl warning" 
+                            :class="{ 'opacity-50 cursor-not-allowed': processingAction === 'recall' }"
+                            :disabled="!localServing || processingAction" 
+                            @click="recall"
+                        >
                             <span v-if="processingAction === 'recall'" class="flex items-center justify-center gap-2">
                                 <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span>Memproses...</span>
                             </span>
                             <span v-else>🔔 Panggil Ulang</span>
                         </button>
 
                         <button class="btn-ctrl primary" :class="{ 'opacity-75 cursor-not-allowed': processingAction === 'next' }" :disabled="processingAction" @click="callNext">
                             <div v-if="processingAction === 'next'" class="flex items-center justify-center gap-2">
-                                <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
+                                <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                 <span>Memproses...</span>
                             </div>
                             <span v-else>▶ Panggil Berikutnya</span>
