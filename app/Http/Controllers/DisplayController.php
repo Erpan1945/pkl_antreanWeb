@@ -12,22 +12,31 @@ class DisplayController extends Controller
 {
     public function index()
     {
-        return Inertia::render('Display/Index');
-    }
-
-    // FUNGSI API DATA
-    public function getData()
-    {
-        $queues = Queue::with(['service', 'counter']) 
+        // 1. Ambil datanya terlebih dahulu (pindahkan logika dari getData ke sini)
+        $dataAntrean = Queue::with(['service', 'counter']) 
             ->whereDate('created_at', Carbon::today())
-            // PERBAIKAN DI SINI: Gunakan 'called' (bukan calling)
             ->whereIn('status', ['waiting', 'called']) 
-            
-            // Prioritaskan yang statusnya 'called' di paling atas
             ->orderByRaw("CASE WHEN status = 'called' THEN 1 ELSE 2 END") 
             ->orderBy('updated_at', 'desc') 
             ->get();
 
-        return response()->json($queues);
+        // 2. Kirim datanya ke Vue Inertia
+        return Inertia::render('Display/Index', [
+            'queues' => $dataAntrean, 
+        ]);
     }
+
+    // Fungsi ini boleh dihapus jika tidak dipakai oleh aplikasi lain (misal Android), 
+    // karena Inertia Vue sudah mengambil data langsung dari fungsi index() di atas.
+    // public function getData()
+    // {
+    //     $queues = Queue::with(['service', 'counter']) 
+    //         ->whereDate('created_at', Carbon::today())
+    //         ->whereIn('status', ['waiting', 'called']) 
+    //         ->orderByRaw("CASE WHEN status = 'called' THEN 1 ELSE 2 END") 
+    //         ->orderBy('updated_at', 'desc') 
+    //         ->get();
+
+    //     return response()->json($queues);
+    // }
 }

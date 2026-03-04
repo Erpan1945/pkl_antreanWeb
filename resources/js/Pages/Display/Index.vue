@@ -1,36 +1,36 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { supabase } from '@/utils/supabase'; 
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'; // Tambah watch
+import { router } from '@inertiajs/vue3'; // Tambah router inertia
 import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; 
 
+// --- 0. TERIMA DATA DARI CONTROLLER (INERTIA PROPS) ---
+const props = defineProps({
+    queues: {
+        type: Array,
+        default: () => []
+    }
+});
+
 // --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
-
-const playlistVideos = [
-    "vHZhFmkINI8", 
-    "H7fAevGRHXQ", 
-    "7EJQy7gSk1c", 
-    "1q9ijwlvMTQ" 
-];
+const playlistVideos = ["vHZhFmkINI8", "H7fAevGRHXQ", "7EJQy7gSk1c", "1q9ijwlvMTQ"];
 const videoId = ref(playlistVideos[0]);
 const indonesiaRayaId = "HKrhbLJa1JA"; 
 const isIndonesiaRayaPlaying = ref(false);
 const hasPlayedToday = ref(false); 
 
 // --- STATE UTAMA ---
-const activeQueues = ref([]);
 const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
 const currentDisplayQueue = ref(null); 
 const pendingAnnouncements = ref([]); 
 const isSpeaking = ref(false); 
 
-let isFirstLoad = true;
 let timeInterval = null;
-let realtimeChannel = null; // Channel Realtime Supabase
+let polling = null; // Variabel penyimpan interval refresh
 
-// --- YOUTUBE API LOGIC ---
+// --- YOUTUBE API LOGIC (TIDAK ADA YANG BERUBAH) ---
 const initPlayer = () => {
     if (player.value && typeof player.value.destroy === 'function') { 
         try { player.value.destroy(); } catch(e) { console.error(e); } 
@@ -41,15 +41,10 @@ const initPlayer = () => {
         height: '100%',
         videoId: videoId.value,
         playerVars: {
-            'autoplay': 1,
-            'controls': 0,
-            'rel': 0, 
-            'loop': 1, 
-            'modestbranding': 1, 
-            'iv_load_policy': 3, 
+            'autoplay': 1, 'controls': 0, 'rel': 0, 'loop': 1, 
+            'modestbranding': 1, 'iv_load_policy': 3, 
             'playlist': playlistVideos.join(','), 
-            'playsinline': 1,
-            'origin': window.location.origin
+            'playsinline': 1, 'origin': window.location.origin
         },
         events: {
             'onReady': (event) => {
@@ -60,8 +55,6 @@ const initPlayer = () => {
                 }
             },
             'onStateChange': (event) => {
-                // KUNCI: Deteksi otomatis saat video selesai
-                // Jika video SELESAI (0) dan saat itu sedang putar Indonesia Raya
                 if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) {
                     stopIndonesiaRayaAndPlayQueue();
                 }
@@ -70,17 +63,10 @@ const initPlayer = () => {
     });
 };
 
-// Fungsi transisi instan tanpa jeda
 const stopIndonesiaRayaAndPlayQueue = () => {
     isIndonesiaRayaPlaying.value = false;
     if (player.value) {
-        // Langsung balikkan ke playlist utama
-        player.value.loadPlaylist({
-            playlist: playlistVideos,
-            listType: 'playlist',
-            index: 0,
-            startSeconds: 0
-        });
+        player.value.loadPlaylist({ playlist: playlistVideos, listType: 'playlist', index: 0, startSeconds: 0 });
         player.value.unMute();
         player.value.setVolume(100);
     }
@@ -103,39 +89,29 @@ const checkIndonesiaRayaTime = () => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    
-    // Jam tayang (Sesuaikan di sini)
     const targetHour = 10;    
     const targetMinute = 0;  
 
     if (hours === targetHour && minutes === targetMinute) {
         if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
             if (player.value && typeof player.value.loadVideoById === 'function') {
-                console.log("MEMUTAR INDONESIA RAYA...");
                 isIndonesiaRayaPlaying.value = true;
                 hasPlayedToday.value = true; 
-                
                 player.value.loadVideoById(indonesiaRayaId);
                 player.value.unMute();
                 player.value.setVolume(100);
                 player.value.playVideo();
                 
-                // Fallback timeout in case onStateChange ENDED event fails to fire
                 setTimeout(() => {
-                    console.log("KEMBALI KE ASABRI (FALLBACK)");
-                    if (isIndonesiaRayaPlaying.value) {
-                         stopIndonesiaRayaAndPlayQueue();
-                    }
+                    if (isIndonesiaRayaPlaying.value) stopIndonesiaRayaAndPlayQueue();
                 }, 133000); 
             }
         }
     }
-    if (minutes !== targetMinute) {
-        hasPlayedToday.value = false;
-    }
+    if (minutes !== targetMinute) hasPlayedToday.value = false;
 };
 
-// --- PROCESSOR ANTRIAN ---
+// --- PROCESSOR AUDIO (TIDAK BERUBAH) ---
 const playNextAnnouncement = () => {
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
@@ -143,9 +119,8 @@ const playNextAnnouncement = () => {
         return;
     }
     isSpeaking.value = true;
-    if (player.value && typeof player.value.setVolume === 'function') {
-        player.value.setVolume(10); 
-    }
+    if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(10); 
+    
     const queueData = pendingAnnouncements.value.shift();
     currentDisplayQueue.value = queueData.originalData;
     callQueue(queueData.announcement, () => {
@@ -153,97 +128,38 @@ const playNextAnnouncement = () => {
     });
 };
 
-const fetchInitialData = async () => {
-    try {
-        console.log("🔍 Mengambil data antrian hari ini...");
+// --- LOGIC AUDIO TRIGGER (PENGGANTI SUPABASE) ---
+// Pantau perubahan pada props.queues setiap kali layar me-refresh data
+watch(() => props.queues, (newQueues) => {
+    if (!newQueues || newQueues.length === 0) return;
 
-        // 1. Buat format tanggal hari ini (YYYY-MM-DD)
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`; 
-
-        const { data, error } = await supabase
-            .from('queues')
-            .select('*, counter:counters ( id, name )')
-            .gte('created_at', `${todayStr}T00:00:00`) // Hanya data mulai hari ini
-            .order('created_at', { ascending: true });
-
-        if (error) {
-            console.error("❌ Error Supabase:", error.message);
-            return;
-        }
-
-        activeQueues.value = data || [];
+    newQueues.forEach(fullData => {
+        const lastTime = processedState.value.get(fullData.id);
         
-        // Logic agar audio tidak bunyi semua saat refresh
-        if (data && data.length > 0 && isFirstLoad) {
-            data.forEach(q => processedState.value.set(q.id, q.updated_at));
-            isFirstLoad = false;
+        // Jika ada antrean yang statusnya "called" dan waktu updatenya lebih baru
+        if ((!lastTime || fullData.updated_at > lastTime) && fullData.status === 'called') {
+            
+            processedState.value.set(fullData.id, fullData.updated_at);
+            
+            const rawCode = fullData.ticket_code || fullData.number || '000'; 
+            const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
+            const numberOnly = rawCode.replace(/\D/g, ''); 
+            const cleanedNumber = parseInt(numberOnly, 10).toString();
+            
+            pendingAnnouncements.value.push({
+                announcement: { 
+                    prefix, 
+                    number: cleanedNumber, 
+                    counter: fullData.counter ? fullData.counter.name.replace(/\D/g, '') : '1' 
+                },
+                originalData: fullData
+            });
+
+            if (!isSpeaking.value) playNextAnnouncement();
         }
+    });
+}, { deep: true, immediate: true });
 
-    } catch (e) {
-        console.error("❌ Gagal koneksi:", e);
-    }
-};
-
-// --- SETUP REALTIME LISTENER ---
-const setupRealtime = () => {
-    realtimeChannel = supabase
-        .channel('public:queues')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, async (payload) => {
-            const { eventType, new: newData, old: oldData } = payload;
-
-            if (eventType === 'DELETE') {
-                activeQueues.value = activeQueues.value.filter(q => q.id !== oldData.id);
-                return;
-            }
-
-            const { data: fullData } = await supabase
-                .from('queues')
-                .select('*, counter:counters ( id, name )') 
-                .eq('id', newData.id)
-                .single();
-
-            if (!fullData) return;
-
-            if (eventType === 'INSERT') {
-                activeQueues.value.push(fullData);
-            } 
-            else if (eventType === 'UPDATE') {
-                const index = activeQueues.value.findIndex(q => q.id === fullData.id);
-                if (index !== -1) {
-                    activeQueues.value[index] = fullData;
-                }
-
-                // --- LOGIC AUDIO ANNOUNCEMENT ---
-                const lastTime = processedState.value.get(fullData.id);
-                
-                if ((!lastTime || fullData.updated_at > lastTime) && fullData.status === 'called') {
-                    
-                    processedState.value.set(fullData.id, fullData.updated_at);
-                    
-                    const rawCode = fullData.ticket_code || fullData.number || '000'; 
-                    const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
-                    const numberOnly = rawCode.replace(/\D/g, ''); 
-                    const cleanedNumber = parseInt(numberOnly, 10).toString();
-                    
-                    pendingAnnouncements.value.push({
-                        announcement: { 
-                            prefix, 
-                            number: cleanedNumber, 
-                            counter: fullData.counter ? fullData.counter.name.replace(/\D/g, '') : '1' 
-                        },
-                        originalData: fullData
-                    });
-
-                    if (!isSpeaking.value) playNextAnnouncement();
-                }
-            }
-        })
-        .subscribe();
-};
 
 // --- UTILS ---
 const enableAudio = () => {
@@ -259,30 +175,28 @@ const enableAudio = () => {
     document.documentElement.requestFullscreen().catch(() => {});
 };
 
-const nextQueues = computed(() => activeQueues.value.filter(q => q.status === 'waiting').slice(0, 3));
+// Menggunakan props.queues langsung karena datanya disuplai oleh Inertia
+const nextQueues = computed(() => (props.queues || []).filter(q => q.status === 'waiting').slice(0, 3));
 
 onMounted(() => {
-    // Preload audio assets
     preloadCommonAudio().catch(() => {});
-
     loadYoutubeAPI();
     
-    // GANTI POLLING DENGAN REALTIME
-    fetchInitialData(); // 1. Ambil data awal sekali saja
-    setupRealtime();    // 2. Aktifkan listener realtime
-
-    // Interval YouTube tetap jalan untuk mengecek jadwal Indonesia Raya
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
+
+    // --- FITUR POLLING REALTIME ---
+    polling = setInterval(() => {
+        router.reload({
+            only: ['queues'], // <--- PASTIKAN NAMA INI SAMA DENGAN VARIABEL DI CONTROLLER
+            preserveScroll: true, 
+            preserveState: true   
+        });
+    }, 3000); // Me-refresh data dari MySQL setiap 3 detik
 });
 
 onUnmounted(() => {
-    // Hapus interval
     clearInterval(timeInterval);
-    
-    // Matikan Realtime
-    if (realtimeChannel) {
-        supabase.removeChannel(realtimeChannel);
-    }
+    clearInterval(polling); // Hapus memori polling saat pindah halaman
 });
 </script>
 

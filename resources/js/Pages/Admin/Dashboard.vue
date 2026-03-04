@@ -1,7 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
-import { supabase } from '@/utils/supabase'; 
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line, Bar } from 'vue-chartjs';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue';
@@ -102,9 +101,9 @@ const processExport = () => {
 };
 
 // --- REALTIME & LOADING LOGIC ---
-let realtimeChannel = null;
 const inertiaIsLoading = ref(false);        
 const isBackgroundRefreshing = ref(false);  
+let polling = null; // Variabel penyimpan interval
 
 // Listener Inertia Global
 document.addEventListener('inertia:start', (event) => {
@@ -117,21 +116,8 @@ document.addEventListener('inertia:finish', () => {
     inertiaIsLoading.value = false;
 });
 
-// Fungsi Debounce
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
-
-const refreshData = debounce(() => {
-    console.log("⚡ Refreshing Admin Data (Background Mode)...");
+// Fungsi untuk me-refresh data grafik dan tabel
+const refreshData = () => {
     isBackgroundRefreshing.value = true;
 
     router.reload({
@@ -142,23 +128,20 @@ const refreshData = debounce(() => {
             isBackgroundRefreshing.value = false;
         }
     });
-}, 1000); 
+}; 
 
 onMounted(() => {
-    // Setup Realtime Listener
-    realtimeChannel = supabase
-        .channel('admin-dashboard')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
-            console.log("🔔 REALTIME EVENT DITERIMA:", payload); // Log event masuk
-            refreshData();
-        })
-        .subscribe((status) => {
-            console.log("🔌 Status Koneksi Realtime:", status); // Log status koneksi (SUBSCRIBED / CHANNEL_ERROR)
-        });
+    // --- FITUR POLLING INERTIA (PENGGANTI SUPABASE) ---
+    // Me-refresh Dashboard Admin setiap 5 detik 
+    // (Dibuat 5 detik agar server tidak terlalu berat merender grafik)
+    polling = setInterval(() => {
+        refreshData();
+    }, 5000); 
 });
 
 onUnmounted(() => {
-    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    // Matikan interval saat admin pindah halaman
+    if (polling) clearInterval(polling);
 });
 
 // Helper Status Color

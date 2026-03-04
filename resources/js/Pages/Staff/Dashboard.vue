@@ -1,10 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { router, Link } from '@inertiajs/vue3'
 import axios from 'axios'
 import DisplayLayout from '@/Layouts/DisplayLayout.vue';
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
-import { supabase } from '@/utils/supabase'; 
 import { Menu, MenuButton, MenuItems, MenuItem, Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from '@headlessui/vue';
 import { 
     Bars3Icon, 
@@ -24,17 +23,14 @@ const props = defineProps({
   auth: Object
 })
 
-const localServing = ref(props.currentServing)
-const waitingList = ref(props.waitingList || [])
-const stats = ref(props.stats || { total: 0, finished: 0 })
-const localWaiting = ref(props.waitingList ? props.waitingList.length : 0)
-
-let realtimeChannel = null;
-
-// --- STATE LOADING TOMBOL (Anti-Spam) ---
-const processingAction = ref(null); 
+// 1. Ubah menjadi computed agar otomatis berubah saat Inertia melakukan reload
+const localServing = computed(() => props.currentServing);
+const waitingList = computed(() => props.waitingList || []);
+const stats = computed(() => props.stats || { total: 0, finished: 0 });
+const localWaiting = computed(() => props.waitingCount || 0);
 
 // --- LOGIC EXPORT CUSTOM ---
+// (Biarkan fungsi export Anda tetap ada di sini) ...
 const showExportModal = ref(false);
 const exportConfig = ref({
     type: 'daily',
@@ -42,75 +38,36 @@ const exportConfig = ref({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear()
 });
-
-const openExportModal = () => {
-    showExportModal.value = true;
-};
-
-const closeExportModal = () => {
-    showExportModal.value = false;
-};
-
+const openExportModal = () => { showExportModal.value = true; };
+const closeExportModal = () => { showExportModal.value = false; };
 const processExport = () => {
     const params = new URLSearchParams();
     params.append('type', exportConfig.value.type);
-
-    if (exportConfig.value.type === 'daily') {
-        params.append('date', exportConfig.value.date);
-    } else if (exportConfig.value.type === 'monthly') {
-        params.append('month', exportConfig.value.month);
-        params.append('year', exportConfig.value.year);
-    } else if (exportConfig.value.type === 'yearly') {
-        params.append('year', exportConfig.value.year);
-    }
-
-    // Download via Browser
+    if (exportConfig.value.type === 'daily') params.append('date', exportConfig.value.date);
+    else if (exportConfig.value.type === 'monthly') { params.append('month', exportConfig.value.month); params.append('year', exportConfig.value.year); }
+    else if (exportConfig.value.type === 'yearly') params.append('year', exportConfig.value.year);
     window.location.href = `/admin/export?${params.toString()}`;
-    
     closeExportModal();
 };
 
-// --- DATA SYNC & REALTIME ---
-const fetchUpdates = async () => {
-  try {
-      const res = await axios.get(`/staff/${props.counter.id}/stats`);
-      
-      localServing.value = res.data.currentServing;
-      if (res.data.waitingList) {
-          waitingList.value = res.data.waitingList;
-          localWaiting.value = res.data.waitingList.length;
-      } else {
-          waitingList.value = [];
-          localWaiting.value = 0;
-      }
-
-      if (res.data.stats) {
-        stats.value = res.data.stats;
-      }
-
-  } catch (e) {
-      console.error("Gagal sync data", e);
-  }
-}
-
-const setupRealtime = () => {
-    realtimeChannel = supabase
-        .channel('staff-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => {
-            console.log("⚡ Data berubah, menyinkronkan...");
-            fetchUpdates();
-        })
-        .subscribe();
-};
+// --- FITUR POLLING INERTIA (PENGGANTI SUPABASE) ---
+let polling = null;
 
 onMounted(() => {
-  fetchUpdates(); 
-  setupRealtime(); 
-})
+    // Meminta update data dari Controller secara diam-diam setiap 3 detik
+    polling = setInterval(() => {
+        router.reload({
+            only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
+            preserveScroll: true, 
+            preserveState: true   
+        });
+    }, 3000);
+});
 
 onUnmounted(() => { 
-    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
-})
+    // Matikan interval saat pindah halaman
+    clearInterval(polling);
+});
 
 // --- TOMBOL AKSI ---
 const handleAction = async (actionName, url, payload = {}) => {
@@ -136,14 +93,12 @@ const recall = () => handleAction('recall', '/staff/recall');
 const skip = () => {
     if (!localServing.value) return;
     const tempId = localServing.value.id;
-    localServing.value = null; 
     handleAction('skip', '/staff/skip', { queue_id: tempId });
 }
 
 const complete = () => {
     if (!localServing.value) return;
     const tempId = localServing.value.id;
-    localServing.value = null; 
     handleAction('complete', '/staff/complete', { queue_id: tempId });
 }
 
