@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'; // Tambah watch
-import { router } from '@inertiajs/vue3'; // Tambah router inertia
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { router } from '@inertiajs/vue3';
 import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; 
+import { supabase } from '@/supabase';
 
 // --- 0. TERIMA DATA DARI CONTROLLER (INERTIA PROPS) ---
 const props = defineProps({
@@ -28,7 +29,7 @@ const pendingAnnouncements = ref([]);
 const isSpeaking = ref(false); 
 
 let timeInterval = null;
-let polling = null; // Variabel penyimpan interval refresh
+let realtimeChannel = null; // Pengganti variabel polling
 
 // --- YOUTUBE API LOGIC (TIDAK ADA YANG BERUBAH) ---
 const initPlayer = () => {
@@ -128,8 +129,8 @@ const playNextAnnouncement = () => {
     });
 };
 
-// --- LOGIC AUDIO TRIGGER (PENGGANTI SUPABASE) ---
-// Pantau perubahan pada props.queues setiap kali layar me-refresh data
+// --- LOGIC AUDIO TRIGGER ---
+// Akan otomatis berjalan jika Supabase menyuruh Inertia me-reload props.queues
 watch(() => props.queues, (newQueues) => {
     if (!newQueues || newQueues.length === 0) return;
 
@@ -184,19 +185,28 @@ onMounted(() => {
     
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
-    // --- FITUR POLLING REALTIME ---
-    polling = setInterval(() => {
-        router.reload({
-            only: ['queues'], // <--- PASTIKAN NAMA INI SAMA DENGAN VARIABEL DI CONTROLLER
-            preserveScroll: true, 
-            preserveState: true   
-        });
-    }, 3000); // Me-refresh data dari MySQL setiap 3 detik
+    // --- FITUR SUPABASE REALTIME ---
+    realtimeChannel = supabase
+        .channel('public:queues_display') // Nama channel khusus display
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
+            console.log('Sinyal Panggilan Diterima dari Supabase:', payload);
+            
+            // Tarik data antrean terbaru dari Laravel untuk mendapatkan update nama loket dll
+            router.reload({
+                only: ['queues'],
+                preserveScroll: true, 
+                preserveState: true   
+            });
+        })
+        .subscribe();
 });
 
 onUnmounted(() => {
     clearInterval(timeInterval);
-    clearInterval(polling); // Hapus memori polling saat pindah halaman
+    // Hapus memori listener saat pindah halaman
+    if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+    }
 });
 </script>
 

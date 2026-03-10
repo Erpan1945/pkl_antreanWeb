@@ -21,6 +21,8 @@ import {
     ArrowPathIcon 
 } from '@heroicons/vue/24/solid';
 
+import { supabase } from '@/supabase';
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
 const props = defineProps({
@@ -103,7 +105,7 @@ const processExport = () => {
 // --- REALTIME & LOADING LOGIC ---
 const inertiaIsLoading = ref(false);        
 const isBackgroundRefreshing = ref(false);  
-let polling = null; // Variabel penyimpan interval
+let realtimeChannel = null; // Pengganti interval polling
 
 // Listener Inertia Global
 document.addEventListener('inertia:start', (event) => {
@@ -131,17 +133,23 @@ const refreshData = () => {
 }; 
 
 onMounted(() => {
-    // --- FITUR POLLING INERTIA (PENGGANTI SUPABASE) ---
-    // Me-refresh Dashboard Admin setiap 5 detik 
-    // (Dibuat 5 detik agar server tidak terlalu berat merender grafik)
-    polling = setInterval(() => {
-        refreshData();
-    }, 5000); 
+    // --- FITUR SUPABASE REALTIME ---
+    realtimeChannel = supabase
+        .channel('public:admin_dashboard')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
+            console.log('Update Data Antrian Masuk:', payload);
+            
+            // Saat ada perubahan di database (tambah/update/hapus antrean), panggil refreshData
+            refreshData();
+        })
+        .subscribe();
 });
 
 onUnmounted(() => {
-    // Matikan interval saat admin pindah halaman
-    if (polling) clearInterval(polling);
+    // Matikan channel realtime saat admin pindah halaman
+    if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+    }
 });
 
 // Helper Status Color

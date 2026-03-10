@@ -15,6 +15,8 @@ import {
     ClockIcon 
 } from '@heroicons/vue/24/solid';
 
+import { supabase } from '@/supabase'; 
+
 const props = defineProps({
   counter: Object,
   currentServing: Object,
@@ -30,7 +32,6 @@ const stats = computed(() => props.stats || { total: 0, finished: 0 });
 const localWaiting = computed(() => props.waitingCount || 0);
 
 // --- LOGIC EXPORT CUSTOM ---
-// (Biarkan fungsi export Anda tetap ada di sini) ...
 const showExportModal = ref(false);
 const exportConfig = ref({
     type: 'daily',
@@ -50,28 +51,35 @@ const processExport = () => {
     closeExportModal();
 };
 
-// --- FITUR POLLING INERTIA (PENGGANTI SUPABASE) ---
-let polling = null;
+// --- FITUR SUPABASE REALTIME ---
+let realtimeChannel = null;
 
 onMounted(() => {
-    // Meminta update data dari Controller secara diam-diam setiap 3 detik
-    polling = setInterval(() => {
-        isBackgroundRefreshing.value = true; // <-- Aktifkan mode latar belakang
-
-        router.reload({
-            only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
-            preserveScroll: true, 
-            preserveState: true,
-            onFinish: () => {
-                isBackgroundRefreshing.value = false; // <-- Matikan setelah selesai
-            }
-        });
-    }, 3000);
+    // Berlangganan (Subscribe) ke perubahan tabel 'queues' di Supabase
+    realtimeChannel = supabase
+        .channel('public:queues')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
+            console.log('Terjadi perubahan di Supabase:', payload);
+            
+            // Minta Inertia menarik data terbaru dari Controller secara halus
+            isBackgroundRefreshing.value = true;
+            router.reload({
+                only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
+                preserveScroll: true, 
+                preserveState: true,
+                onFinish: () => {
+                    isBackgroundRefreshing.value = false;
+                }
+            });
+        })
+        .subscribe();
 });
 
 onUnmounted(() => { 
-    // Matikan interval saat pindah halaman
-    clearInterval(polling);
+    // Putuskan koneksi realtime saat pindah halaman agar tidak bocor memori
+    if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+    }
 });
 
 // --- TOMBOL AKSI ---
@@ -81,7 +89,7 @@ const handleAction = async (actionName, url, payload = {}) => {
 
     try {
         await axios.post(url, { ...payload, counter_id: props.counter.id });
-        // Setelah sukses, Inertia Polling akan otomatis memperbarui tampilan
+        // Setelah sukses, Supabase Realtime akan mendeteksi perubahan DB dan otomatis mereload data
     } catch (e) {
         console.error(`Gagal aksi ${actionName}:`, e);
         alert("Gagal melakukan aksi. Cek koneksi server lokal.");
