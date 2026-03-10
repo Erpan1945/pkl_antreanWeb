@@ -21,7 +21,7 @@ import {
     ArrowPathIcon 
 } from '@heroicons/vue/24/solid';
 
-import { supabase } from '@/supabase';
+import { supabase } from '@/utils/supabase';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 

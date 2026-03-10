@@ -3,19 +3,20 @@
 .git
 .gitignore
 
-# Dependencies (Diinstall otomatis oleh Vercel, JANGAN di-upload)
+# Dependencies
 node_modules
-#vendor
+# vendor (Biasanya sudah diabaikan oleh .gitignore bawaan Laravel)
 
 # Environment variables (JANGAN di-upload, set di Vercel Dashboard)
 .env
 .env.example
 
-# Tests
-tests
+# Tests & Dev files
+tests/
 phpunit.xml
+phpunit.result.cache
 
-# Storage & Logs (Ephemeral di Vercel, tidak perlu di-upload)
+# Storage & Logs (Sistem file Vercel bersifat Read-Only)
 storage/*.key
 storage/framework/cache/*
 storage/framework/views/*
@@ -29,26 +30,3 @@ storage/logs/*
 .idea
 .vscode
 *.sublime-workspace
-
-# --- BLOCK GOOGLE BLOATWARE (JANGAN ANGKUT INI) ---
-vendor/google/apiclient-services/src/Google/Service/YouTube
-vendor/google/apiclient-services/src/Google/Service/YouTubeAnalytics
-vendor/google/apiclient-services/src/Google/Service/YouTubeReporting
-vendor/google/apiclient-services/src/Google/Service/MapsEngine
-vendor/google/apiclient-services/src/Google/Service/MapsCoordinate
-vendor/google/apiclient-services/src/Google/Service/AndroidPublisher
-vendor/google/apiclient-services/src/Google/Service/AndroidEnterprise
-vendor/google/apiclient-services/src/Google/Service/AndroidManagement
-vendor/google/apiclient-services/src/Google/Service/AndroidProvisioningPartner
-vendor/google/apiclient-services/src/Google/Service/Cloud*
-vendor/google/apiclient-services/src/Google/Service/Compute*
-vendor/google/apiclient-services/src/Google/Service/Container*
-vendor/google/apiclient-services/src/Google/Service/Apigee*
-vendor/google/apiclient-services/src/Google/Service/AdSense*
-vendor/google/apiclient-services/src/Google/Service/Analytics*
-vendor/google/apiclient-services/src/Google/Service/Content*
-vendor/google/apiclient-services/src/Google/Service/Dialogflow*
-vendor/google/apiclient-services/src/Google/Service/Dfareporting*
-vendor/google/apiclient-services/src/Google/Service/Games*
-vendor/google/apiclient-services/src/Google/Service/Genomics*
-vendor/google/apiclient-services/src/Google/Service/ShoppingContent*

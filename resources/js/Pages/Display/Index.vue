@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; 
-import { supabase } from '@/supabase';
+import { supabase } from '@/utils/supabase';
 
 // --- 0. TERIMA DATA DARI CONTROLLER (INERTIA PROPS) ---
 const props = defineProps({

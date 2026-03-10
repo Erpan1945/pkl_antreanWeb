@@ -15,7 +15,7 @@ import {
     ClockIcon 
 } from '@heroicons/vue/24/solid';
 
-import { supabase } from '@/supabase'; 
+import { supabase } from '@/utils/supabase';
 
 const props = defineProps({
   counter: Object,
