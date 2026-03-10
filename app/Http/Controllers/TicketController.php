@@ -75,7 +75,7 @@ class TicketController extends Controller
 
             // Kirim ke Google Sheets via Webhook
             try {
-                $webhookUrl = env('GOOGLE_WEBHOOK_URL');
+                $webhookUrl = config('services.google.webhook_url');
                 if ($webhookUrl) {
                     Http::post($webhookUrl, [
                         'kode_tiket'   => $ticket->ticket_code,

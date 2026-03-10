@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+
+    'google' => [
+        'webhook_url' => env('GOOGLE_WEBHOOK_URL'),
+    ],
+
 ];
