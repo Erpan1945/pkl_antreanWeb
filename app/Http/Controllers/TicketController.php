@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Http;
 use App\Models\Queue;
 use App\Models\Service;
 use Carbon\Carbon;
@@ -73,11 +74,21 @@ class TicketController extends Controller
                 ]);
             });
 
-            // Kirim ke Google Sheets (Async)
+            // Kirim ke Google Sheets via Webhook
             try {
-                SyncQueueToGoogleSheets::dispatch($ticket);
+                $webhookUrl = env('GOOGLE_WEBHOOK_URL');
+                if ($webhookUrl) {
+                    Http::post($webhookUrl, [
+                        'kode_tiket'   => $ticket->ticket_code,
+                        'nama_tamu'    => $ticket->guest_name,
+                        'nrp_nip'      => $ticket->identity_number,
+                        'no_hp'        => $ticket->phone_number,
+                        'keperluan'    => $ticket->purpose,
+                        'waktu_dibuat' => $ticket->created_at->timezone('Asia/Jakarta')->format('Y-m-d H:i:s')
+                    ]);
+                }
             } catch (\Exception $e) {
-                Log::error('Google Sheets Queue Error: ' . $e->getMessage());
+                Log::error('Webhook Google Sheets Error: ' . $e->getMessage());
             }
 
             // RESPON JSON KE VUE

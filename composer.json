@@ -13,7 +13,6 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "rap2hpoutre/fast-excel": "*",
-        "revolution/laravel-google-sheets": "^7.1",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {
@@ -40,7 +39,7 @@
     },
     "scripts": {
         "pre-autoload-dump": [
-            "@php cleanup_google.php"
+            
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
@@ -62,11 +61,7 @@
     "extra": {
         "laravel": {
             "dont-discover": []
-        },
-        "google/apiclient-services": [
-            "Sheets",
-            "Drive"
-        ]
+        }
     },
     "config": {
         "optimize-autoloader": true,
