@@ -26,5 +26,9 @@ class AppServiceProvider extends ServiceProvider
         if (config('app.env') === 'production') {
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
+
+        if (isset($_ENV['VERCEL_URL']) || env('APP_ENV') === 'production') {
+            app()->useStoragePath('/tmp');
+        }
     }
 }
