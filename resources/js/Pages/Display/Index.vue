@@ -29,9 +29,9 @@ const pendingAnnouncements = ref([]);
 const isSpeaking = ref(false); 
 
 let timeInterval = null;
-let realtimeChannel = null; // Pengganti variabel polling
+let realtimeChannel = null;
 
-// --- YOUTUBE API LOGIC (TIDAK ADA YANG BERUBAH) ---
+// --- YOUTUBE API LOGIC ---
 const initPlayer = () => {
     if (player.value && typeof player.value.destroy === 'function') { 
         try { player.value.destroy(); } catch(e) { console.error(e); } 
@@ -112,7 +112,6 @@ const checkIndonesiaRayaTime = () => {
     if (minutes !== targetMinute) hasPlayedToday.value = false;
 };
 
-// --- PROCESSOR AUDIO (TIDAK BERUBAH) ---
 const playNextAnnouncement = () => {
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
@@ -129,17 +128,13 @@ const playNextAnnouncement = () => {
     });
 };
 
-// --- LOGIC AUDIO TRIGGER ---
-// Akan otomatis berjalan jika Supabase menyuruh Inertia me-reload props.queues
 watch(() => props.queues, (newQueues) => {
     if (!newQueues || newQueues.length === 0) return;
 
     newQueues.forEach(fullData => {
         const lastTime = processedState.value.get(fullData.id);
         
-        // Jika ada antrean yang statusnya "called" dan waktu updatenya lebih baru
         if ((!lastTime || fullData.updated_at > lastTime) && fullData.status === 'called') {
-            
             processedState.value.set(fullData.id, fullData.updated_at);
             
             const rawCode = fullData.ticket_code || fullData.number || '000'; 
@@ -161,8 +156,6 @@ watch(() => props.queues, (newQueues) => {
     });
 }, { deep: true, immediate: true });
 
-
-// --- UTILS ---
 const enableAudio = () => {
     isAudioEnabled.value = true;
     const unlock = new Audio();
@@ -176,22 +169,16 @@ const enableAudio = () => {
     document.documentElement.requestFullscreen().catch(() => {});
 };
 
-// Menggunakan props.queues langsung karena datanya disuplai oleh Inertia
 const nextQueues = computed(() => (props.queues || []).filter(q => q.status === 'waiting').slice(0, 3));
 
 onMounted(() => {
     preloadCommonAudio().catch(() => {});
     loadYoutubeAPI();
-    
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
-    // --- FITUR SUPABASE REALTIME ---
     realtimeChannel = supabase
-        .channel('public:queues_display') // Nama channel khusus display
+        .channel('public:queues_display')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
-            console.log('Sinyal Panggilan Diterima dari Supabase:', payload);
-            
-            // Tarik data antrean terbaru dari Laravel untuk mendapatkan update nama loket dll
             router.reload({
                 only: ['queues'],
                 preserveScroll: true, 
@@ -203,7 +190,6 @@ onMounted(() => {
 
 onUnmounted(() => {
     clearInterval(timeInterval);
-    // Hapus memori listener saat pindah halaman
     if (realtimeChannel) {
         supabase.removeChannel(realtimeChannel);
     }
@@ -212,71 +198,94 @@ onUnmounted(() => {
 
 <template>
     <DisplayLayout title="Display Antrian ASABRI">
-        
-        <div class="w-full h-full flex overflow-hidden relative bg-[#f8f9fa]">
-            <div v-if="!isIndonesiaRayaPlaying" class="w-[55%] flex flex-col p-6 gap-6 justify-center">
-                <div class="bg-[#ffc107] rounded-[30px] border-[12px] border-[#00569c] shadow-2xl p-8 relative flex items-center justify-between h-[400px]">
-                    <div class="flex flex-col items-start pl-4">
-                        <h2 class="text-2xl font-black text-[#00569c] uppercase tracking-widest mb-2">NOMOR ANTRIAN</h2>
-                        <div class="text-[12rem] leading-none font-black text-[#00569c] font-mono tracking-tighter drop-shadow-md">
-                            {{ currentDisplayQueue ? currentDisplayQueue.ticket_code : 'A-000' }}
-                        </div>
+        <div class="w-screen h-screen flex overflow-hidden bg-[#f8f9fa] p-[2vh]">
+            
+            <div v-if="!isIndonesiaRayaPlaying" class="w-[55%] h-full flex flex-col gap-[2vh] pr-[2vh]">
+                
+                <div class="flex-1 bg-[#ffc107] rounded-[3vh] border-[1vh] border-[#00569c] shadow-2xl p-[3vh] relative flex items-center justify-between overflow-hidden">
+                    
+                    <div class="flex flex-col items-start justify-center w-[65%] h-full">
+                        <h2 class="text-[2.5vh] font-black text-[#00569c] uppercase tracking-widest mb-[0.5vh] opacity-80 pl-[2vh]">
+                            NOMOR ANTRIAN
+                        </h2>
+                        
+                        <svg viewBox="0 0 500 200" preserveAspectRatio="xMidYMid meet" class="w-full h-full drop-shadow-2xl">
+                            <text x="50%" y="55%" 
+                                  font-size="160" 
+                                  font-weight="900"
+                                  dominant-baseline="central" 
+                                  text-anchor="middle" 
+                                  class="svg-ticket-text">
+                                {{ currentDisplayQueue ? currentDisplayQueue.ticket_code : 'A-000' }}
+                            </text>
+                        </svg>
                     </div>
 
-                    <div class="flex flex-col items-center pr-4">
-                        <span class="text-[#00569c] text-2xl font-black uppercase mb-3">MENUJU</span>
-                        <div class="bg-[#00569c] text-white p-8 rounded-[25px] flex flex-col items-center min-w-[200px] shadow-xl border-4 border-white/20">
-                            <span class="text-3xl font-bold tracking-widest uppercase mb-1">LOKET</span>
-                            <span class="text-8xl font-black leading-none">
+                    <div class="flex flex-col items-center justify-center w-[32%] h-full pr-[1vh]">
+                        <span class="text-[#00569c] text-[3vh] font-black uppercase mb-[1vh]">MENUJU</span>
+                        <div class="bg-[#00569c] text-white p-[3vh] rounded-[3vh] flex flex-col items-center w-full aspect-square justify-center shadow-xl border-[0.5vh] border-white/20">
+                            <span class="text-[3.5vh] font-bold tracking-widest uppercase">LOKET</span>
+                            <span class="text-[12vh] font-black leading-none">
                                 {{ currentDisplayQueue ? currentDisplayQueue.counter?.name.replace(/\D/g, '') : '-' }}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-[25px] shadow-xl border-2 border-gray-100 flex flex-col overflow-hidden h-[240px]">
-                    <div class="bg-[#00569c] text-white py-3 px-6 text-center font-black uppercase tracking-[0.2em] text-sm">
+                <div class="h-[30vh] bg-white rounded-[3vh] shadow-xl border-[0.3vh] border-gray-100 flex flex-col overflow-hidden">
+                    <div class="bg-[#00569c] text-white py-[1.5vh] px-[3vh] text-center font-black uppercase tracking-[0.2em] text-[1.8vh]">
                         ANTRIAN BERIKUTNYA
                     </div>
-                    <div class="flex-1 p-6 flex gap-6 items-center justify-center">
+                    <div class="flex-1 p-[2vh] flex gap-[2vw] items-center justify-center">
                         <template v-if="nextQueues.length > 0">
                             <div v-for="queue in nextQueues" :key="queue.id" 
-                                 class="flex-1 bg-white border-2 border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center shadow-md transform hover:scale-105 transition-transform">
-                                <div class="text-6xl font-black text-[#00569c] font-mono mb-1">
+                                 class="flex-1 h-full bg-white border-[0.3vh] border-gray-200 rounded-[2vh] p-[2vh] flex flex-col items-center justify-center shadow-md transform hover:scale-105 transition-transform">
+                                <div class="text-[6vh] font-black text-[#00569c] font-mono mb-[0.5vh]">
                                     {{ queue.ticket_code }}
                                 </div>
-                                <div class="text-sm font-bold text-gray-500 uppercase">
+                                <div class="text-[1.8vh] font-bold text-gray-500 uppercase">
                                     {{ queue.counter?.name || '-' }}
                                 </div>
                             </div>
                         </template>
-                        <div v-else class="text-gray-400 italic font-bold">
+                        <div v-else class="text-gray-400 italic font-bold text-[2vh]">
                             Belum ada antrian menunggu
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div :class="[isIndonesiaRayaPlaying ? 'fixed inset-0 z-[100] p-0 bg-black' : 'w-[45%] p-6 pl-0']" class="flex items-center justify-center transition-all duration-700 ease-in-out">
-                <div :class="[isIndonesiaRayaPlaying ? 'rounded-0 border-0' : 'rounded-[30px] border-4 border-[#ffc107] shadow-2xl']" class="w-full h-full bg-black overflow-hidden relative flex items-center justify-center">
+            <div :class="[isIndonesiaRayaPlaying ? 'fixed inset-0 z-[100] p-0 bg-black' : 'flex-1 h-full']" class="flex items-center justify-center transition-all duration-700 ease-in-out">
+                <div :class="[isIndonesiaRayaPlaying ? 'rounded-0' : 'rounded-[3vh] border-[0.5vh] border-[#ffc107] shadow-2xl']" class="w-full h-full bg-black overflow-hidden relative flex items-center justify-center">
                     <div id="youtube-player" class="absolute pointer-events-none"></div>
                     <div class="absolute inset-0 bg-transparent z-10"></div>
                 </div>
             </div>
         </div>
 
-        <div v-if="!isAudioEnabled" class="fixed inset-0 bg-[#00569c]/95 backdrop-blur-xl flex items-center justify-center z-50">
-            <div class="text-center">
-                <div class="mb-10 transform scale-125">
-                    <div class="bg-white p-6 rounded-[30px] inline-block mb-4 shadow-2xl border-4 border-yellow-400">
-                        <img src="/images/logo-asabri.png" alt="Logo" class="h-24 w-auto object-contain" @error="(e) => e.target.style.display='none'">
-                    </div>
-                    <h2 class="text-4xl font-black text-white mb-2 uppercase tracking-widest">SISTEM DISPLAY TV</h2>
-                    <p class="text-yellow-400 text-xl font-bold">PT ASABRI KC MALANG</p>
+        <div v-if="!isAudioEnabled" class="fixed inset-0 bg-[#00569c]/95 backdrop-blur-xl flex items-center justify-center z-[500]">
+            <div class="flex flex-col items-center justify-center text-center p-[5vh] max-w-[90vw]">
+                
+                <div class="bg-white p-[3vh] rounded-[4vh] shadow-2xl border-[0.6vh] border-yellow-400 mb-[4vh] transition-transform duration-500 hover:scale-105">
+                    <img src="/images/logo-asabri.png" alt="Logo" class="h-[15vh] w-auto object-contain">
                 </div>
-                <button @click="enableAudio" class="group relative inline-flex items-center justify-center px-16 py-6 text-2xl font-black text-[#00569c] transition-all duration-300 bg-yellow-400 font-sans rounded-full hover:scale-110 shadow-lg">
-                    <span>MULAI DISPLAY TV</span>
+
+                <div class="flex flex-col gap-[1vh] mb-[8vh]">
+                    <h2 class="text-[7vh] font-black text-white uppercase tracking-tighter leading-none drop-shadow-lg">
+                        SISTEM DISPLAY TV
+                    </h2>
+                    <p class="text-yellow-400 text-[3vh] font-black tracking-[0.3em] uppercase opacity-90">
+                        PT ASABRI KC MALANG
+                    </p>
+                </div>
+
+                <button @click="enableAudio" 
+                        class="group relative inline-flex items-center justify-center px-[8vw] py-[3.5vh] overflow-hidden font-black rounded-full shadow-2xl transition-all duration-300 bg-yellow-400 hover:bg-yellow-300 hover:scale-110 active:scale-95">
+                    <span class="text-[3.5vh] text-[#00569c] tracking-widest">MULAI DISPLAY TV</span>
+                    
+                    <div class="absolute inset-0 w-full h-full bg-white/20 -skew-x-12 translate-x-full group-hover:translate-x-[-100%] transition-transform duration-1000"></div>
                 </button>
+
             </div>
         </div>
 
@@ -284,33 +293,30 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+:deep(body) {
+    overflow: hidden;
+    margin: 0;
+}
+
 .font-mono { font-family: 'Courier New', Courier, monospace; }
 
-/* Menjamin container hitam tetap pada ukurannya */
-.w-full.h-full.bg-black.overflow-hidden.relative {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* Styling Teks SVG agar pas dan tajam */
+.svg-ticket-text {
+    fill: #00569c;
+    font-weight: 900;
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: -2px;
 }
 
-/* Memaksa Iframe YouTube untuk memenuhi layar secara proporsional */
 #youtube-player {
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) scale(1.3); /* Scale 1.3 untuk zoom & potong UI YouTube */
     width: 100% !important;
     height: 100% !important;
-    min-width: 100% !important;
-    min-height: 100% !important;
-    aspect-ratio: 16 / 9; /* Menjaga rasio tetap 16:9 */
+    transform: scale(1.1);
 }
 
-/* Memastikan elemen iframe yang digenerate otomatis juga kena */
 :deep(iframe) {
-    width: 100% !important;
-    height: 100% !important;
+    width: 100vw !important;
+    height: 100vh !important;
     border: none;
 }
 </style>
