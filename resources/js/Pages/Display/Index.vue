@@ -156,8 +156,17 @@ watch(() => props.queues, (newQueues) => {
     });
 }, { deep: true, immediate: true });
 
+// --- REVISI: ENABLE AUDIO DENGAN WAKE-UP PROTOCOL ---
 const enableAudio = () => {
     isAudioEnabled.value = true;
+
+    // Paksa bangunkan Audio Engine untuk Browser TV
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+        const resumeCtx = new AudioContext();
+        resumeCtx.resume();
+    }
+
     const unlock = new Audio();
     unlock.play().catch(() => {});
     
@@ -176,14 +185,22 @@ onMounted(() => {
     loadYoutubeAPI();
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
+    // --- REVISI: SUPABASE REALTIME DENGAN FILTER (ANTI 500 ERROR) ---
     realtimeChannel = supabase
         .channel('public:queues_display')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
-            router.reload({
-                only: ['queues'],
-                preserveScroll: true, 
-                preserveState: true   
-            });
+        .on('postgres_changes', { 
+            event: 'UPDATE', // Hanya ambil event Update untuk kurangi beban
+            schema: 'public', 
+            table: 'queues' 
+        }, (payload) => {
+            // Hanya reload jika status berubah menjadi 'called' atau ada antrean baru 'waiting'
+            if (payload.new.status === 'called' || payload.new.status === 'waiting') {
+                router.reload({
+                    only: ['queues'],
+                    preserveScroll: true, 
+                    preserveState: true   
+                });
+            }
         })
         .subscribe();
 });
