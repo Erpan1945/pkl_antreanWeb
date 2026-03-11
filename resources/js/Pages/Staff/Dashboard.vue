@@ -51,41 +51,50 @@ let realtimeChannel = null;
 let debounceTimer = null;
 
 onMounted(() => {
-    preloadCommonAudio?.().catch(() => {}); // Jika ada utils audio
-
+    // --- PROTOKOL REALTIME PEKA DATA (ANTI-LEWAT) ---
     realtimeChannel = supabase
         .channel('public:queues_staff_stable')
         .on('postgres_changes', { 
-            event: '*', 
+            event: '*', // Menangkap INSERT (orang baru) & UPDATE (panggil loket)
             schema: 'public', 
             table: 'queues' 
         }, (payload) => {
-            console.log('Sinyal Supabase masuk:', payload.eventType);
+            // LOG UNTUK CEK: Muncul di Inspect Element -> Console
+            console.log(`Ada data ${payload.eventType}! Mencoba memperbarui...`);
 
+            // 1. Hapus antrean rencana refresh sebelumnya
             if (debounceTimer) clearTimeout(debounceTimer);
 
+            // 2. Buat rencana refresh baru
             debounceTimer = setTimeout(() => {
-                // Cek kesibukan server
-                if (isBackgroundRefreshing.value) {
-                    console.log('Server masih sibuk, mencoba lagi nanti...');
-                    return;
-                }
-
-                console.log('Server aman, menarik data terbaru...');
-                isBackgroundRefreshing.value = true;
                 
-                router.reload({
-                    only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
-                    preserveScroll: true, 
-                    preserveState: true,
-                    onFinish: () => {
-                        isBackgroundRefreshing.value = false;
-                    },
-                    onError: () => {
-                        isBackgroundRefreshing.value = false;
+                // 3. JANGAN DI-RETURN (DIBATALKAN). 
+                // Jika sedang sibuk, kita tunda sedikit lagi, jangan dibuang.
+                const performReload = () => {
+                    if (isBackgroundRefreshing.value) {
+                        console.log('Server masih memproses, nunggu 500ms lagi...');
+                        setTimeout(performReload, 500); // Cek lagi nanti
+                        return;
                     }
-                });
-            }, 1000); 
+
+                    console.log('Menarik data terbaru dari server...');
+                    isBackgroundRefreshing.value = true;
+                    
+                    router.reload({
+                        // Pastikan 'waitingList' dan 'waitingCount' ada di sini
+                        only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
+                        preserveScroll: true, 
+                        preserveState: true,
+                        onFinish: () => {
+                            isBackgroundRefreshing.value = false;
+                            console.log('Update selesai!');
+                        }
+                    });
+                };
+
+                performReload();
+                
+            }, 500); // Kita perpendek jadi 0.5 detik agar lebih responsif
         })
         .subscribe();
 });
