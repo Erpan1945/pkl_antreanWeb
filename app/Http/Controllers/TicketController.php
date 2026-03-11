@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Http;
 use App\Models\Queue;
 use App\Models\Service;
 use Carbon\Carbon;
@@ -10,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\Controller;
 
 class TicketController extends Controller
@@ -23,57 +23,49 @@ class TicketController extends Controller
 
     public function store(Request $request)
     {
-        // 1. VALIDASI DIPERKETAT
-        // Kita gunakan 'in' agar input hanya menerima nilai yang ada di dropdown
+        // 1. VALIDASI DILONGGARKAN
+        // Kita tidak lagi mewajibkan input dari user
         $request->validate([
-            'guest_name'      => 'required|string|max:100',
-            'identity_number' => 'required|string|max:20',
-            'phone_number'    => 'required|string|max:15',
-            'purpose'         => [
-                'required',
-                'string',
-                // Pastikan hanya menerima value ini (sesuai dropdown Vue)
-                'in:pdth,pengurusan pensiun,bppp,bpi,bps,bpa,lainnya'
-            ],
+            'service_id' => 'nullable|exists:services,id',
         ]);
 
         try {
-            // Ambil layanan pertama (default)
-            $service = Service::first();
+            // Ambil layanan dari request, jika tidak ada ambil yang pertama
+            $service = $request->service_id 
+                ? Service::find($request->service_id) 
+                : Service::first();
 
             if (!$service) {
-                throw new \Exception("ERROR: Data Layanan KOSONG. Jalankan 'php artisan db:seed' dulu!");
+                throw new \Exception("Layanan tidak ditemukan.");
             }
             
-            $ticket = DB::transaction(function () use ($request, $service) {
+            $ticket = DB::transaction(function () use ($service) {
                 
-                // Cek antrian terakhir hari ini
                 $today = Carbon::today();
                 $lastQueue = Queue::where('service_id', $service->id)
                     ->whereDate('created_at', $today)
-                    ->lockForUpdate() // Mencegah nomor ganda
+                    ->lockForUpdate() 
                     ->orderBy('number', 'desc')
                     ->first();
 
-                // Buat nomor antrian baru
                 $newNumber = $lastQueue ? $lastQueue->number + 1 : 1;
                 $ticketCode = $service->code . '-' . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
 
-                // Simpan ke Database
+                // 2. SIMPAN DENGAN DATA DEFAULT
                 return Queue::create([
                     'service_id'      => $service->id,
                     'counter_id'      => null,
-                    'guest_name'      => $request->guest_name,
-                    'identity_number' => $request->identity_number,
-                    'phone_number'    => $request->phone_number,
-                    'purpose'         => $request->purpose, // Data dari dropdown
+                    'guest_name'      => 'Tamu Umum', // Default
+                    'identity_number' => '-',          // Default
+                    'phone_number'    => '-',          // Default
+                    'purpose'         => 'Layanan Mandiri', // Default
                     'number'          => $newNumber,
                     'ticket_code'     => $ticketCode,
                     'status'          => 'waiting'
                 ]);
             });
 
-            // Kirim ke Google Sheets via Webhook
+            // 3. KIRIM KE GOOGLE SHEETS (Tetap jalan dengan data default)
             try {
                 $webhookUrl = config('services.google.webhook_url');
                 if ($webhookUrl) {
@@ -90,14 +82,14 @@ class TicketController extends Controller
                 Log::error('Webhook Google Sheets Error: ' . $e->getMessage());
             }
 
-            // RESPON JSON KE VUE
+            // 4. RESPON KE VUE
             return response()->json([
                 'message' => 'Tiket berhasil dibuat',
                 'ticket' => [
                     'ticket_code'     => $ticket->ticket_code,
                     'guest_name'      => $ticket->guest_name,
                     'identity_number' => $ticket->identity_number,
-                    'purpose'         => $ticket->purpose, // Pastikan ini terkirim
+                    'purpose'         => $ticket->purpose,
                 ],
                 'service_name' => $service->name,
                 'date' => $ticket->created_at->timezone('Asia/Jakarta')->format('d M Y H:i')
