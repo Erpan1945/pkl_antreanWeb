@@ -51,50 +51,45 @@ let realtimeChannel = null;
 let debounceTimer = null;
 
 onMounted(() => {
-    // --- PROTOKOL REALTIME PEKA DATA (ANTI-LEWAT) ---
+    // --- PROTOKOL STAF: AMAN & STABIL (ANTI-LOOP) ---
     realtimeChannel = supabase
-        .channel('public:queues_staff_stable')
+        .channel('public:staff_dashboard_safe')
         .on('postgres_changes', { 
-            event: '*', // Menangkap INSERT (orang baru) & UPDATE (panggil loket)
+            event: '*', 
             schema: 'public', 
             table: 'queues' 
         }, (payload) => {
-            // LOG UNTUK CEK: Muncul di Inspect Element -> Console
-            console.log(`Ada data ${payload.eventType}! Mencoba memperbarui...`);
+            // 1. JIKA SEDANG PROSES, ABAIKAN SINYAL BARU (KUNCI MATI)
+            if (isBackgroundRefreshing.value) return; 
 
-            // 1. Hapus antrean rencana refresh sebelumnya
+            console.log(`Sinyal ${payload.eventType} diterima. Menunggu sistem stabil...`);
+
+            // 2. Gunakan Debounce yang lebih manusiawi (2 detik)
             if (debounceTimer) clearTimeout(debounceTimer);
 
-            // 2. Buat rencana refresh baru
             debounceTimer = setTimeout(() => {
+                console.log('Menyinkronkan data dashboard staf...');
+                isBackgroundRefreshing.value = true;
                 
-                // 3. JANGAN DI-RETURN (DIBATALKAN). 
-                // Jika sedang sibuk, kita tunda sedikit lagi, jangan dibuang.
-                const performReload = () => {
-                    if (isBackgroundRefreshing.value) {
-                        console.log('Server masih memproses, nunggu 500ms lagi...');
-                        setTimeout(performReload, 500); // Cek lagi nanti
-                        return;
-                    }
-
-                    console.log('Menarik data terbaru dari server...');
-                    isBackgroundRefreshing.value = true;
-                    
-                    router.reload({
-                        // Pastikan 'waitingList' dan 'waitingCount' ada di sini
-                        only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
-                        preserveScroll: true, 
-                        preserveState: true,
-                        onFinish: () => {
+                router.reload({
+                    only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
+                    preserveScroll: true, 
+                    preserveState: true,
+                    onFinish: () => {
+                        // 3. JEDA PAKSA (COOL DOWN)
+                        // Jangan buka kunci selama 3 detik setelah update selesai
+                        // Ini untuk mencegah "efek pantulan" sinyal dari database
+                        setTimeout(() => {
                             isBackgroundRefreshing.value = false;
-                            console.log('Update selesai!');
-                        }
-                    });
-                };
-
-                performReload();
-                
-            }, 500); // Kita perpendek jadi 0.5 detik agar lebih responsif
+                            console.log('Sistem siap menerima sinyal kembali.');
+                        }, 3000); 
+                    },
+                    onError: () => {
+                        // Jika error, buka kunci setelah 5 detik supaya tidak macet total
+                        setTimeout(() => isBackgroundRefreshing.value = false, 5000);
+                    }
+                });
+            }, 2000); // Tunggu 2 detik setelah perubahan terjadi
         })
         .subscribe();
 });
