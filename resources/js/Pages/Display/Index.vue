@@ -5,12 +5,15 @@ import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; 
 import { supabase } from '@/utils/supabase';
 
-// --- 0. DATA PROPS ---
+// --- 0. TERIMA DATA DARI CONTROLLER (INERTIA PROPS) ---
 const props = defineProps({
-    queues: { type: Array, default: () => [] }
+    queues: {
+        type: Array,
+        default: () => []
+    }
 });
 
-// --- 1. CONFIG YOUTUBE & STATE ---
+// --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
 const playlistVideos = ["vHZhFmkINI8", "H7fAevGRHXQ", "7EJQy7gSk1c", "1q9ijwlvMTQ"];
 const videoId = ref(playlistVideos[0]);
@@ -18,30 +21,44 @@ const indonesiaRayaId = "HKrhbLJa1JA";
 const isIndonesiaRayaPlaying = ref(false);
 const hasPlayedToday = ref(false); 
 
+// --- STATE UTAMA ---
 const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
 const currentDisplayQueue = ref(null); 
 const pendingAnnouncements = ref([]); 
 const isSpeaking = ref(false); 
-const isBackgroundRefreshing = ref(false); // Penjaga reload
 
 let timeInterval = null;
 let realtimeChannel = null;
-let debounceTimer = null; // Peredam kejut
 
-// --- 2. YOUTUBE API LOGIC ---
+// --- YOUTUBE API LOGIC ---
 const initPlayer = () => {
-    if (player.value?.destroy) { try { player.value.destroy(); } catch(e) {} }
+    if (player.value && typeof player.value.destroy === 'function') { 
+        try { player.value.destroy(); } catch(e) { console.error(e); } 
+    }
+    
     player.value = new YT.Player('youtube-player', {
-        width: '100%', height: '100%', videoId: videoId.value,
-        playerVars: { 'autoplay': 1, 'controls': 0, 'rel': 0, 'loop': 1, 'playlist': playlistVideos.join(','), 'playsinline': 1 },
+        width: '100%',
+        height: '100%',
+        videoId: videoId.value,
+        playerVars: {
+            'autoplay': 1, 'controls': 0, 'rel': 0, 'loop': 1, 
+            'modestbranding': 1, 'iv_load_policy': 3, 
+            'playlist': playlistVideos.join(','), 
+            'playsinline': 1, 'origin': window.location.origin
+        },
         events: {
             'onReady': (event) => {
                 event.target.setVolume(100);
-                if(isAudioEnabled.value) { event.target.unMute(); event.target.playVideo(); }
+                if(isAudioEnabled.value) {
+                    event.target.unMute();
+                    event.target.playVideo();
+                }
             },
             'onStateChange': (event) => {
-                if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) stopIndonesiaRayaAndPlayQueue();
+                if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) {
+                    stopIndonesiaRayaAndPlayQueue();
+                }
             }
         }
     });
@@ -49,118 +66,175 @@ const initPlayer = () => {
 
 const stopIndonesiaRayaAndPlayQueue = () => {
     isIndonesiaRayaPlaying.value = false;
-    player.value?.loadPlaylist({ playlist: playlistVideos, listType: 'playlist', index: 0 });
+    if (player.value) {
+        player.value.loadPlaylist({ playlist: playlistVideos, listType: 'playlist', index: 0, startSeconds: 0 });
+        player.value.unMute();
+        player.value.setVolume(100);
+    }
 };
 
 const loadYoutubeAPI = () => {
-    if (window.YT?.Player) { initPlayer(); } 
+    if (window.YT && window.YT.Player) { initPlayer(); } 
     else {
         window.onYouTubeIframeAPIReady = initPlayer;
-        if (!document.querySelector('script[src*="iframe_api"]')) {
+        if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
             const tag = document.createElement('script');
             tag.src = "https://www.youtube.com/iframe_api";
-            document.head.appendChild(tag);
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
         }
     }
 };
 
-// --- 3. AUDIO PROCESSOR ---
+const checkIndonesiaRayaTime = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const targetHour = 10;    
+    const targetMinute = 0;  
+
+    if (hours === targetHour && minutes === targetMinute) {
+        if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
+            if (player.value && typeof player.value.loadVideoById === 'function') {
+                isIndonesiaRayaPlaying.value = true;
+                hasPlayedToday.value = true; 
+                player.value.loadVideoById(indonesiaRayaId);
+                player.value.unMute();
+                player.value.setVolume(100);
+                player.value.playVideo();
+                
+                setTimeout(() => {
+                    if (isIndonesiaRayaPlaying.value) stopIndonesiaRayaAndPlayQueue();
+                }, 133000); 
+            }
+        }
+    }
+    if (minutes !== targetMinute) hasPlayedToday.value = false;
+};
+
 const playNextAnnouncement = () => {
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
-        player.value?.setVolume?.(100);
+        if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(100);
         return;
     }
     isSpeaking.value = true;
-    player.value?.setVolume?.(10); 
+    if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(10); 
+    
     const queueData = pendingAnnouncements.value.shift();
     currentDisplayQueue.value = queueData.originalData;
-    callQueue(queueData.announcement, () => playNextAnnouncement());
+    callQueue(queueData.announcement, () => {
+        playNextAnnouncement();
+    });
 };
 
-// --- 4. WATCHER AUDIO (PEMICU SUARA) ---
 watch(() => props.queues, (newQueues) => {
-    if (!newQueues?.length || !isAudioEnabled.value) return;
+    if (!newQueues || newQueues.length === 0) return;
+
     newQueues.forEach(fullData => {
         const lastTime = processedState.value.get(fullData.id);
-        if (fullData.status === 'called' && (!lastTime || fullData.updated_at > lastTime)) {
+        
+        if ((!lastTime || fullData.updated_at > lastTime) && fullData.status === 'called') {
             processedState.value.set(fullData.id, fullData.updated_at);
-            const rawCode = fullData.ticket_code || 'A-000';
+            
+            const rawCode = fullData.ticket_code || fullData.number || '000'; 
+            const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
+            const numberOnly = rawCode.replace(/\D/g, ''); 
+            const cleanedNumber = parseInt(numberOnly, 10).toString();
+            
             pendingAnnouncements.value.push({
                 announcement: { 
-                    prefix: isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : '', 
-                    number: rawCode.replace(/\D/g, ''), 
-                    counter: fullData.counter?.name.replace(/\D/g, '') || '1' 
+                    prefix, 
+                    number: cleanedNumber, 
+                    counter: fullData.counter ? fullData.counter.name.replace(/\D/g, '') : '1' 
                 },
                 originalData: fullData
             });
+
             if (!isSpeaking.value) playNextAnnouncement();
         }
     });
 }, { deep: true, immediate: true });
 
-// --- 5. SOLUSI AUTOPLAY TV ---
+// --- REVISI: ENABLE AUDIO DENGAN WAKE-UP PROTOCOL ---
 const enableAudio = () => {
     isAudioEnabled.value = true;
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) { new AudioContext().resume(); }
     
-    if (player.value?.unMute) {
+    // 1. Bangunkan mesin audio TV
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+        const resumeCtx = new AudioContext();
+        resumeCtx.resume();
+    }
+
+    // 2. Pancingan suara agar browser mengizinkan audio YouTube
+    const unlock = new Audio();
+    unlock.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+    unlock.play().catch(() => {});
+    
+    // 3. PAKSA VIDEO JALAN (Double Kick)
+    if (player.value && typeof player.value.playVideo === 'function') {
         player.value.unMute(); 
         player.value.setVolume(100); 
+        
+        // Coba putar sekarang
         player.value.playVideo();
+        
+        // Jika masih bandel (delay TV), paksa lagi setelah 500ms
+        setTimeout(() => {
+            if (player.value.getPlayerState() !== 1) { // 1 = Playing
+                player.value.playVideo();
+            }
+        }, 500);
     }
+
     document.documentElement.requestFullscreen().catch(() => {});
 };
 
-// --- 6. MOUNTED (STABILIZER REALTIME) ---
+const nextQueues = computed(() => (props.queues || []).filter(q => q.status === 'waiting').slice(0, 3));
+
 onMounted(() => {
     preloadCommonAudio().catch(() => {});
     loadYoutubeAPI();
-    
-    // Timer Indonesia Raya
-    timeInterval = setInterval(() => {
-        const now = new Date();
-        if (now.getHours() === 10 && now.getMinutes() === 0 && !hasPlayedToday.value) {
-            isIndonesiaRayaPlaying.value = true;
-            hasPlayedToday.value = true;
-            player.value?.loadVideoById(indonesiaRayaId);
-        }
-        if (now.getMinutes() !== 0) hasPlayedToday.value = false;
-    }, 1000);
+    timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
-    // SUPABASE REALTIME (VERSI ANTI-LEWAT & ANTI-500 ERROR)
+    // REVISI UNTUK DIAGNOSA (Cek apakah koneksi berhasil)
     realtimeChannel = supabase
-        .channel('public:display_stable')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
-            console.log('Sinyal masuk:', payload.eventType);
+        .channel('public:display_tv_unique') // Nama channel unik
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'queues' 
+        }, (payload) => {
+            // JIKA INI MUNCUL DI CONSOLE, BERARTI SUPABASE AMAN
+            console.log("ADA SINYAL MASUK!", payload.eventType, payload.new);
 
             if (debounceTimer) clearTimeout(debounceTimer);
-
             debounceTimer = setTimeout(() => {
-                const triggerReload = () => {
-                    if (isBackgroundRefreshing.value) {
-                        setTimeout(triggerReload, 500); // Ngantre kalau server sibuk
-                        return;
+                console.log("Mencoba Reload Data...");
+                isBackgroundRefreshing.value = true;
+                router.reload({
+                    only: ['queues'],
+                    onFinish: () => { 
+                        isBackgroundRefreshing.value = false;
+                        console.log("Data Berhasil Diperbarui!");
                     }
-
-                    isBackgroundRefreshing.value = true;
-                    router.reload({
-                        only: ['queues'],
-                        preserveScroll: true,
-                        onFinish: () => { isBackgroundRefreshing.value = false; }
-                    });
-                };
-                triggerReload();
-            }, 800); // Jeda 0.8 detik (Pas untuk sinkronisasi)
+                });
+            }, 1000);
         })
-        .subscribe();
+        .subscribe((status) => {
+            // CEK APAKAH STATUSNYA 'SUBSCRIBED'?
+            console.log("STATUS KONEKSI SUPABASE:", status);
+        });
 });
 
 onUnmounted(() => {
-    if (timeInterval) clearInterval(timeInterval);
-    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    clearInterval(timeInterval);
+    if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+    }
 });
+
 </script>
 
 <template>
@@ -275,15 +349,30 @@ onUnmounted(() => {
     letter-spacing: -2px;
 }
 
+/* --- PERBAIKAN VIDEO LANDSCAPE --- */
 #youtube-player {
     width: 100% !important;
     height: 100% !important;
-    transform: scale(1.1);
+    /* Kita hapus scale(1.1) agar video tidak nge-zoom */
+    transform: scale(1.0); 
+    /* Memastikan video tetap di tengah kontainer */
+    object-fit: contain; 
 }
 
 :deep(iframe) {
-    width: 100vw !important;
-    height: 100vh !important;
+    /* Ganti 100vw/vh menjadi 100% agar mengikuti ukuran kotak flex-1 */
+    width: 100% !important; 
+    height: 100% !important;
     border: none;
+    /* Menghilangkan margin default iframe */
+    display: block;
+}
+
+/* Memastikan kontainer video tidak membocorkan gambar keluar */
+.flex-1.h-full.bg-black {
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 </style>

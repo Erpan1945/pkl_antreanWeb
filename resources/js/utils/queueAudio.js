@@ -9,24 +9,21 @@ const audioCache = new Map(); // src -> HTMLAudio element (base)
 const preloadFile = (src) => {
     if (audioCache.has(src)) return audioCache.get(src).promise;
 
-    const audio = new Audio(src);
-    audio.preload = 'auto';
-
+    const audio = new Audio();
+    // Kita cek dulu apakah filenya bisa dijangkau
     let resolveFn;
     const p = new Promise((resolve) => { resolveFn = resolve; });
 
-    const cleanup = () => {
-        audio.removeEventListener('canplaythrough', onLoad);
-        audio.removeEventListener('error', onError);
-    };
+    audio.addEventListener('canplaythrough', () => {
+        resolveFn(true);
+    }, { once: true });
 
-    const onLoad = () => { cleanup(); resolveFn(true); };
-    const onError = () => { cleanup(); resolveFn(false); };
+    audio.addEventListener('error', () => {
+        // Jika error 404, kita diam saja, jangan penuhi konsol
+        resolveFn(false);
+    }, { once: true });
 
-    audio.addEventListener('canplaythrough', onLoad, { once: true });
-    audio.addEventListener('error', onError, { once: true });
-
-    // Start loading
+    audio.src = src;
     audio.load();
 
     audioCache.set(src, { element: audio, promise: p });
@@ -45,8 +42,8 @@ export const preloadCommonAudio = async () => {
     // angka 0-9
     for (let i = 0; i <= 9; i++) files.add(`${BASE_PATH}/angka/${i}.mp3`);
 
-    // huruf a-z (beberapa project hanya pakai A-C, tapi kita preload lebih banyak)
-    'abcdefghijklmnopqrstuvwxyz'.split('').forEach(ch => files.add(`${BASE_PATH}/huruf/${ch}.mp3`));
+    // Ganti baris tersebut dengan ini (sesuaikan dengan file yang ada):
+    ['a', 'b'].forEach(ch => files.add(`${BASE_PATH}/huruf/${ch}.mp3`));
 
     const promises = Array.from(files).map(src => preloadFile(src).catch(() => false));
     // Wait but don't block too long: return when all done or 2s timeout
