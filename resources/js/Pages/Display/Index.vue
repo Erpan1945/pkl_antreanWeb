@@ -156,38 +156,16 @@ watch(() => props.queues, (newQueues) => {
     });
 }, { deep: true, immediate: true });
 
-// --- REVISI: ENABLE AUDIO DENGAN WAKE-UP PROTOCOL ---
 const enableAudio = () => {
     isAudioEnabled.value = true;
-    
-    // 1. Bangunkan mesin audio TV
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) {
-        const resumeCtx = new AudioContext();
-        resumeCtx.resume();
-    }
-
-    // 2. Pancingan suara agar browser mengizinkan audio YouTube
     const unlock = new Audio();
-    unlock.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
     unlock.play().catch(() => {});
     
-    // 3. PAKSA VIDEO JALAN (Double Kick)
-    if (player.value && typeof player.value.playVideo === 'function') {
+    if (player.value && typeof player.value.unMute === 'function') {
         player.value.unMute(); 
         player.value.setVolume(100); 
-        
-        // Coba putar sekarang
         player.value.playVideo();
-        
-        // Jika masih bandel (delay TV), paksa lagi setelah 500ms
-        setTimeout(() => {
-            if (player.value.getPlayerState() !== 1) { // 1 = Playing
-                player.value.playVideo();
-            }
-        }, 500);
     }
-
     document.documentElement.requestFullscreen().catch(() => {});
 };
 
@@ -198,23 +176,14 @@ onMounted(() => {
     loadYoutubeAPI();
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
-    // REVISI ANTI 500 ERROR
     realtimeChannel = supabase
         .channel('public:queues_display')
-        .on('postgres_changes', { 
-            event: 'UPDATE', // Hanya dengar perubahan
-            schema: 'public', 
-            table: 'queues' 
-        }, (payload) => {
-
-            if (payload.new.status === 'called') {
-                console.log("Staf memanggil, memperbarui data...");
-                router.reload({
-                    only: ['queues'],
-                    preserveScroll: true, 
-                    preserveState: true   
-                });
-            }
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
+            router.reload({
+                only: ['queues'],
+                preserveScroll: true, 
+                preserveState: true   
+            });
         })
         .subscribe();
 });
@@ -339,15 +308,30 @@ onUnmounted(() => {
     letter-spacing: -2px;
 }
 
+/* --- PERBAIKAN VIDEO LANDSCAPE --- */
 #youtube-player {
     width: 100% !important;
     height: 100% !important;
-    transform: scale(1.1);
+    /* Kita hapus scale(1.1) agar video tidak nge-zoom */
+    transform: scale(1.0); 
+    /* Memastikan video tetap di tengah kontainer */
+    object-fit: contain; 
 }
 
 :deep(iframe) {
-    width: 100vw !important;
-    height: 100vh !important;
+    /* Ganti 100vw/vh menjadi 100% agar mengikuti ukuran kotak flex-1 */
+    width: 100% !important; 
+    height: 100% !important;
     border: none;
+    /* Menghilangkan margin default iframe */
+    display: block;
+}
+
+/* Memastikan kontainer video tidak membocorkan gambar keluar */
+.flex-1.h-full.bg-black {
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 </style>
