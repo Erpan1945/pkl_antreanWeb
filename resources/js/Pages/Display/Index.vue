@@ -31,6 +31,9 @@ const isSpeaking = ref(false);
 let timeInterval = null;
 let realtimeChannel = null;
 
+const isBackgroundRefreshing = ref(false); // Tambahkan ini
+let debounceTimer = null; // Tambahkan ini
+
 // --- YOUTUBE API LOGIC ---
 const initPlayer = () => {
     if (player.value && typeof player.value.destroy === 'function') { 
@@ -113,16 +116,25 @@ const checkIndonesiaRayaTime = () => {
 };
 
 const playNextAnnouncement = () => {
-    if (pendingAnnouncements.value.length === 0) {
-        isSpeaking.value = false;
-        if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(100);
+    // Tambahkan proteksi: Jika user belum klik 'Mulai', jangan putar suara
+    if (!isAudioEnabled.value) {
+        console.warn("Audio belum diaktifkan oleh user (tombol Mulai belum diklik).");
         return;
     }
+
+    if (pendingAnnouncements.value.length === 0) {
+        isSpeaking.value = false;
+        if (player.value?.setVolume) player.value.setVolume(100);
+        return;
+    }
+
     isSpeaking.value = true;
-    if (player.value && typeof player.value.setVolume === 'function') player.value.setVolume(10); 
+    if (player.value?.setVolume) player.value.setVolume(10); 
     
     const queueData = pendingAnnouncements.value.shift();
     currentDisplayQueue.value = queueData.originalData;
+
+    // Panggil audio dengan penanganan error yang lebih halus
     callQueue(queueData.announcement, () => {
         playNextAnnouncement();
     });
@@ -176,16 +188,53 @@ onMounted(() => {
     loadYoutubeAPI();
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
+    // --- REVISI FINAL: SUPABASE REALTIME DENGAN PENGAMAN ---
     realtimeChannel = supabase
-        .channel('public:queues_display')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
-            router.reload({
-                only: ['queues'],
-                preserveScroll: true, 
-                preserveState: true   
-            });
+        .channel('public:queues_display_stable')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'queues' 
+        }, (payload) => {
+            // Indikator sinyal di Console
+            console.log("SINYAL DITERIMA!", payload.eventType);
+
+            // 1. Hapus rencana refresh sebelumnya (Peredam Kejut)
+            if (debounceTimer) clearTimeout(debounceTimer);
+
+            // 2. Buat rencana refresh baru setelah jeda 0.8 detik
+            debounceTimer = setTimeout(() => {
+                
+                const performUpdate = () => {
+                    // 3. Jika sedang ada proses tarik data, jangan dibatalkan tapi antre
+                    if (isBackgroundRefreshing.value) {
+                        console.log("Sabar, lagi narik data...");
+                        setTimeout(performUpdate, 500);
+                        return;
+                    }
+
+                    console.log("Memperbarui tampilan TV secara realtime...");
+                    isBackgroundRefreshing.value = true;
+                    
+                    router.reload({
+                        only: ['queues'],
+                        preserveScroll: true,
+                        // --- KUNCI: TRUE agar status 'Mulai' tidak hilang/reset ---
+                        preserveState: true, 
+                        onFinish: () => { 
+                            isBackgroundRefreshing.value = false; 
+                            console.log("Update TV Selesai!");
+                        }
+                    });
+                };
+
+                performUpdate();
+                
+            }, 800); 
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log("STATUS KONEKSI SUPABASE:", status);
+        });
 });
 
 onUnmounted(() => {
