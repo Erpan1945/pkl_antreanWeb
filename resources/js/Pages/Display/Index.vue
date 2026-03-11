@@ -159,22 +159,35 @@ watch(() => props.queues, (newQueues) => {
 // --- REVISI: ENABLE AUDIO DENGAN WAKE-UP PROTOCOL ---
 const enableAudio = () => {
     isAudioEnabled.value = true;
-
-    // Paksa bangunkan Audio Engine untuk Browser TV
+    
+    // 1. Bangunkan mesin audio TV
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (AudioContext) {
         const resumeCtx = new AudioContext();
         resumeCtx.resume();
     }
 
+    // 2. Pancingan suara agar browser mengizinkan audio YouTube
     const unlock = new Audio();
+    unlock.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
     unlock.play().catch(() => {});
     
-    if (player.value && typeof player.value.unMute === 'function') {
+    // 3. PAKSA VIDEO JALAN (Double Kick)
+    if (player.value && typeof player.value.playVideo === 'function') {
         player.value.unMute(); 
         player.value.setVolume(100); 
+        
+        // Coba putar sekarang
         player.value.playVideo();
+        
+        // Jika masih bandel (delay TV), paksa lagi setelah 500ms
+        setTimeout(() => {
+            if (player.value.getPlayerState() !== 1) { // 1 = Playing
+                player.value.playVideo();
+            }
+        }, 500);
     }
+
     document.documentElement.requestFullscreen().catch(() => {});
 };
 
@@ -185,16 +198,17 @@ onMounted(() => {
     loadYoutubeAPI();
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
-    // --- REVISI: SUPABASE REALTIME DENGAN FILTER (ANTI 500 ERROR) ---
+    // REVISI ANTI 500 ERROR
     realtimeChannel = supabase
         .channel('public:queues_display')
         .on('postgres_changes', { 
-            event: 'UPDATE', // Hanya ambil event Update untuk kurangi beban
+            event: 'UPDATE', // Hanya dengar perubahan
             schema: 'public', 
             table: 'queues' 
         }, (payload) => {
-            // Hanya reload jika status berubah menjadi 'called' atau ada antrean baru 'waiting'
-            if (payload.new.status === 'called' || payload.new.status === 'waiting') {
+
+            if (payload.new.status === 'called') {
+                console.log("Staf memanggil, memperbarui data...");
                 router.reload({
                     only: ['queues'],
                     preserveScroll: true, 
