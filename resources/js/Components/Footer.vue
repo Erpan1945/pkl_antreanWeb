@@ -10,31 +10,31 @@
                 
                 <div class="flex shrink-0 items-center">
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) Sahabat Perjuangan Anda Sepanjang Masa
                     </span>
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) Sahabat Perjuangan Anda Sepanjang Masa
                     </span>
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) Sahabat Perjuangan Anda Sepanjang Masa
                     </span>
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) MSahabat Perjuangan Anda Sepanjang Masa
                     </span>
                 </div>
 
                 <div class="flex shrink-0 items-center">
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) Sahabat Perjuangan Anda Sepanjang Masa
                     </span>
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) Sahabat Perjuangan Anda Sepanjang Masa
                     </span>
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) Sahabat Perjuangan Anda Sepanjang Masa
                     </span>
                     <span class="text-xs md:text-lg font-bold text-white uppercase mx-4">
-                        PT ASABRI (Persero) Melayani dengan Sepenuh Hati
+                        PT ASABRI (Persero) Sahabat Perjuangan Anda Sepanjang Masa
                     </span>
                 </div>
 
