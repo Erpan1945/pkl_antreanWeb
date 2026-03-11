@@ -17,84 +17,95 @@ import {
 
 import { supabase } from '@/utils/supabase';
 
+// --- 0. DEFINISI PROPS ---
 const props = defineProps({
   counter: Object,
   currentServing: Object,
   waitingList: Array,
   stats: Object,
-  auth: Object
+  auth: Object,
+  waitingCount: Number // Tambahkan ini karena dipanggil di computed bawah
 })
 
-// 1. Ubah menjadi computed agar otomatis berubah saat Inertia melakukan reload
-const localServing = computed(() => props.currentServing);
-const waitingList = computed(() => props.waitingList || []);
-const stats = computed(() => props.stats || { total: 0, finished: 0 });
-const localWaiting = computed(() => props.waitingCount || 0);
-
-// --- LOGIC EXPORT CUSTOM ---
+// --- 1. STATE & REFS (Pindahkan ke atas agar aman diakses siapa pun) ---
+const inertiaIsLoading = ref(false);
+const isBackgroundRefreshing = ref(false);
+const processingAction = ref(null);
 const showExportModal = ref(false);
+
 const exportConfig = ref({
     type: 'daily',
     date: new Date().toISOString().split('T')[0],
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear()
 });
-const openExportModal = () => { showExportModal.value = true; };
-const closeExportModal = () => { showExportModal.value = false; };
-const processExport = () => {
-    const params = new URLSearchParams();
-    params.append('type', exportConfig.value.type);
-    if (exportConfig.value.type === 'daily') params.append('date', exportConfig.value.date);
-    else if (exportConfig.value.type === 'monthly') { params.append('month', exportConfig.value.month); params.append('year', exportConfig.value.year); }
-    else if (exportConfig.value.type === 'yearly') params.append('year', exportConfig.value.year);
-    window.location.href = `/admin/export?${params.toString()}`;
-    closeExportModal();
-};
 
-// --- FITUR SUPABASE REALTIME ---
+// --- 2. COMPUTED PROPERTIES (Ganti nama agar tidak bentrok dengan props) ---
+const localServing = computed(() => props.currentServing);
+const computedWaitingList = computed(() => props.waitingList || []); // Ganti nama dari waitingList
+const statsData = computed(() => props.stats || { total: 0, finished: 0 }); // Ganti nama dari stats
+const localWaitingCount = computed(() => props.waitingCount || 0);
+
+// --- 3. FITUR SUPABASE REALTIME (DEBOUNCED) ---
 let realtimeChannel = null;
+let debounceTimer = null;
 
 onMounted(() => {
-    // Berlangganan (Subscribe) ke perubahan tabel 'queues' di Supabase
+    preloadCommonAudio?.().catch(() => {}); // Jika ada utils audio
+
     realtimeChannel = supabase
-        .channel('public:queues')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
-            console.log('Terjadi perubahan di Supabase:', payload);
-            
-            // Minta Inertia menarik data terbaru dari Controller secara halus
-            isBackgroundRefreshing.value = true;
-            router.reload({
-                only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
-                preserveScroll: true, 
-                preserveState: true,
-                onFinish: () => {
-                    isBackgroundRefreshing.value = false;
+        .channel('public:queues_staff_stable')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'queues' 
+        }, (payload) => {
+            console.log('Sinyal Supabase masuk:', payload.eventType);
+
+            if (debounceTimer) clearTimeout(debounceTimer);
+
+            debounceTimer = setTimeout(() => {
+                // Cek kesibukan server
+                if (isBackgroundRefreshing.value) {
+                    console.log('Server masih sibuk, mencoba lagi nanti...');
+                    return;
                 }
-            });
+
+                console.log('Server aman, menarik data terbaru...');
+                isBackgroundRefreshing.value = true;
+                
+                router.reload({
+                    only: ['currentServing', 'waitingList', 'stats', 'waitingCount'],
+                    preserveScroll: true, 
+                    preserveState: true,
+                    onFinish: () => {
+                        isBackgroundRefreshing.value = false;
+                    },
+                    onError: () => {
+                        isBackgroundRefreshing.value = false;
+                    }
+                });
+            }, 1000); 
         })
         .subscribe();
 });
 
 onUnmounted(() => { 
-    // Putuskan koneksi realtime saat pindah halaman agar tidak bocor memori
-    if (realtimeChannel) {
-        supabase.removeChannel(realtimeChannel);
-    }
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    if (debounceTimer) clearTimeout(debounceTimer);
 });
 
-// --- TOMBOL AKSI ---
+// --- 4. TOMBOL AKSI ---
 const handleAction = async (actionName, url, payload = {}) => {
-    if (processingAction.value) return; // Mencegah klik ganda jika masih proses
-    processingAction.value = actionName; // Menyalakan status loading
+    if (processingAction.value) return; 
+    processingAction.value = actionName; 
 
     try {
         await axios.post(url, { ...payload, counter_id: props.counter.id });
-        // Setelah sukses, Supabase Realtime akan mendeteksi perubahan DB dan otomatis mereload data
     } catch (e) {
         console.error(`Gagal aksi ${actionName}:`, e);
-        alert("Gagal melakukan aksi. Cek koneksi server lokal.");
+        alert("Gagal melakukan aksi. Periksa server Vercel/Database.");
     } finally {
-        // Beri jeda 500ms agar animasi loading terlihat halus sebelum tombol normal kembali
         setTimeout(() => {
             processingAction.value = null;
         }, 500);
@@ -104,25 +115,32 @@ const handleAction = async (actionName, url, payload = {}) => {
 // Wrapper Functions
 const callNext = () => handleAction('next', '/staff/call-next');
 const recall = () => handleAction('recall', '/staff/recall');
-
 const skip = () => {
     if (!localServing.value) return;
-    const tempId = localServing.value.id;
-    handleAction('skip', '/staff/skip', { queue_id: tempId });
+    handleAction('skip', '/staff/skip', { queue_id: localServing.value.id });
 }
-
 const complete = () => {
     if (!localServing.value) return;
-    const tempId = localServing.value.id;
-    handleAction('complete', '/staff/complete', { queue_id: tempId });
+    handleAction('complete', '/staff/complete', { queue_id: localServing.value.id });
 }
 
-// Navigasi
-const inertiaIsLoading = ref(false);
-const isBackgroundRefreshing = ref(false);
-const processingAction = ref(null);
+// --- 5. LOGIC EXPORT ---
+const openExportModal = () => { showExportModal.value = true; };
+const closeExportModal = () => { showExportModal.value = false; };
+const processExport = () => {
+    const params = new URLSearchParams();
+    params.append('type', exportConfig.value.type);
+    if (exportConfig.value.type === 'daily') params.append('date', exportConfig.value.date);
+    else if (exportConfig.value.type === 'monthly') { 
+        params.append('month', exportConfig.value.month); 
+        params.append('year', exportConfig.value.year); 
+    }
+    window.location.href = `/admin/export?${params.toString()}`;
+    closeExportModal();
+};
+
+// --- 6. NAVIGASI & LOADING ---
 document.addEventListener('inertia:start', () => {
-    // Hanya tampilkan loading jika BUKAN refresh latar belakang
     if (!isBackgroundRefreshing.value) {
         inertiaIsLoading.value = true;
     }
