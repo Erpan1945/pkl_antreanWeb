@@ -198,34 +198,25 @@ onMounted(() => {
     loadYoutubeAPI();
     timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
-    // REVISI UNTUK DIAGNOSA (Cek apakah koneksi berhasil)
+    // REVISI ANTI 500 ERROR
     realtimeChannel = supabase
-        .channel('public:display_tv_unique') // Nama channel unik
+        .channel('public:queues_display')
         .on('postgres_changes', { 
-            event: '*', 
+            event: 'UPDATE', // Hanya dengar perubahan
             schema: 'public', 
             table: 'queues' 
         }, (payload) => {
-            // JIKA INI MUNCUL DI CONSOLE, BERARTI SUPABASE AMAN
-            console.log("ADA SINYAL MASUK!", payload.eventType, payload.new);
 
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                console.log("Mencoba Reload Data...");
-                isBackgroundRefreshing.value = true;
+            if (payload.new.status === 'called') {
+                console.log("Staf memanggil, memperbarui data...");
                 router.reload({
                     only: ['queues'],
-                    onFinish: () => { 
-                        isBackgroundRefreshing.value = false;
-                        console.log("Data Berhasil Diperbarui!");
-                    }
+                    preserveScroll: true, 
+                    preserveState: true   
                 });
-            }, 1000);
+            }
         })
-        .subscribe((status) => {
-            // CEK APAKAH STATUSNYA 'SUBSCRIBED'?
-            console.log("STATUS KONEKSI SUPABASE:", status);
-        });
+        .subscribe();
 });
 
 onUnmounted(() => {
@@ -234,7 +225,6 @@ onUnmounted(() => {
         supabase.removeChannel(realtimeChannel);
     }
 });
-
 </script>
 
 <template>
@@ -349,30 +339,15 @@ onUnmounted(() => {
     letter-spacing: -2px;
 }
 
-/* --- PERBAIKAN VIDEO LANDSCAPE --- */
 #youtube-player {
     width: 100% !important;
     height: 100% !important;
-    /* Kita hapus scale(1.1) agar video tidak nge-zoom */
-    transform: scale(1.0); 
-    /* Memastikan video tetap di tengah kontainer */
-    object-fit: contain; 
+    transform: scale(1.1);
 }
 
 :deep(iframe) {
-    /* Ganti 100vw/vh menjadi 100% agar mengikuti ukuran kotak flex-1 */
-    width: 100% !important; 
-    height: 100% !important;
+    width: 100vw !important;
+    height: 100vh !important;
     border: none;
-    /* Menghilangkan margin default iframe */
-    display: block;
-}
-
-/* Memastikan kontainer video tidak membocorkan gambar keluar */
-.flex-1.h-full.bg-black {
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 </style>
