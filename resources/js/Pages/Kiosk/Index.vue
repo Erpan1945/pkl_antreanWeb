@@ -42,7 +42,7 @@ const submitTicket = async () => {
                 ticketData.value = null;
                 printing.value = false;
             }, 500); 
-        }, 800);
+        }, 4000);
 
     } catch (error) {
         console.error(error);
