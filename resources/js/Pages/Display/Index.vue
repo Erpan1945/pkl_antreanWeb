@@ -5,11 +5,15 @@ import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; 
 import { supabase } from '@/utils/supabase';
 
-// --- 0. PROPS & STATE ---
+// --- 0. TERIMA DATA DARI CONTROLLER (INERTIA PROPS) ---
 const props = defineProps({
-    queues: { type: Array, default: () => [] }
+    queues: {
+        type: Array,
+        default: () => []
+    }
 });
 
+// --- 1. CONFIG YOUTUBE PLAYER ---
 const player = ref(null);
 const playlistVideos = ["vHZhFmkINI8", "H7fAevGRHXQ", "7EJQy7gSk1c", "1q9ijwlvMTQ"];
 const videoId = ref(playlistVideos[0]);
@@ -17,67 +21,47 @@ const indonesiaRayaId = "HKrhbLJa1JA";
 const isIndonesiaRayaPlaying = ref(false);
 const hasPlayedToday = ref(false); 
 
+// --- STATE UTAMA ---
 const processedState = ref(new Map()); 
 const isAudioEnabled = ref(false);
 const currentDisplayQueue = ref(null); 
 const pendingAnnouncements = ref([]); 
 const isSpeaking = ref(false); 
 
-// --- STATE PENGAMAN ANTI-LOOP & ERROR 500 ---
-const isBackgroundRefreshing = ref(false);
-let debounceTimer = null;
-let lastReloadTime = 0; 
 let timeInterval = null;
 let realtimeChannel = null;
 
-// --- 1. LOGIKA SINKRONISASI (SAFE SYNC) ---
-const syncDisplayData = (reason = "realtime") => {
-    const now = Date.now();
-    
-    // REM PAKEM: Jangan reload jika sedang proses ATAU belum lewat 4 detik dari reload terakhir
-    if (isBackgroundRefreshing.value || (now - lastReloadTime < 4000)) {
-        console.log(`[${reason}] Reload diabaikan demi kestabilan server.`);
-        return;
-    }
+const isBackgroundRefreshing = ref(false); // Tambahkan ini
+let debounceTimer = null; // Tambahkan ini
 
-    console.log(`[${reason}] Menarik data terbaru...`);
-    isBackgroundRefreshing.value = true;
-    lastReloadTime = Date.now();
-
-    router.reload({
-        only: ['queues'],
-        preserveScroll: true,
-        preserveState: true, // KUNCI: Agar status 'Mulai' tidak hilang
-        onFinish: () => { 
-            // BERI JEDA ISTIRAHAT untuk server sebelum kunci dibuka lagi
-            setTimeout(() => {
-                isBackgroundRefreshing.value = false; 
-                console.log("Update selesai, sistem siaga.");
-            }, 2000);
-        },
-        onError: () => {
-            setTimeout(() => { isBackgroundRefreshing.value = false; }, 5000);
-        }
-    });
-};
-
-// --- 2. YOUTUBE API ---
+// --- YOUTUBE API LOGIC ---
 const initPlayer = () => {
-    if (player.value?.destroy) { try { player.value.destroy(); } catch(e) {} }
+    if (player.value && typeof player.value.destroy === 'function') { 
+        try { player.value.destroy(); } catch(e) { console.error(e); } 
+    }
+    
     player.value = new YT.Player('youtube-player', {
-        width: '100%', height: '100%', videoId: videoId.value,
+        width: '100%',
+        height: '100%',
+        videoId: videoId.value,
         playerVars: {
             'autoplay': 1, 'controls': 0, 'rel': 0, 'loop': 1, 
-            'playlist': playlistVideos.join(','), 'playsinline': 1,
-            'origin': window.location.origin
+            'modestbranding': 1, 'iv_load_policy': 3, 
+            'playlist': playlistVideos.join(','), 
+            'playsinline': 1, 'origin': window.location.origin
         },
         events: {
             'onReady': (event) => {
                 event.target.setVolume(100);
-                if(isAudioEnabled.value) { event.target.unMute(); event.target.playVideo(); }
+                if(isAudioEnabled.value) {
+                    event.target.unMute();
+                    event.target.playVideo();
+                }
             },
             'onStateChange': (event) => {
-                if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) stopIndonesiaRayaAndPlayQueue();
+                if (event.data === YT.PlayerState.ENDED && isIndonesiaRayaPlaying.value) {
+                    stopIndonesiaRayaAndPlayQueue();
+                }
             }
         }
     });
@@ -85,51 +69,100 @@ const initPlayer = () => {
 
 const stopIndonesiaRayaAndPlayQueue = () => {
     isIndonesiaRayaPlaying.value = false;
-    player.value?.loadPlaylist({ playlist: playlistVideos, listType: 'playlist', index: 0 });
+    if (player.value) {
+        player.value.loadPlaylist({ playlist: playlistVideos, listType: 'playlist', index: 0, startSeconds: 0 });
+        player.value.unMute();
+        player.value.setVolume(100);
+    }
 };
 
 const loadYoutubeAPI = () => {
-    if (window.YT?.Player) { initPlayer(); } 
+    if (window.YT && window.YT.Player) { initPlayer(); } 
     else {
         window.onYouTubeIframeAPIReady = initPlayer;
-        if (!document.querySelector('script[src*="iframe_api"]')) {
+        if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
             const tag = document.createElement('script');
             tag.src = "https://www.youtube.com/iframe_api";
-            document.head.appendChild(tag);
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
         }
     }
 };
 
-// --- 3. AUDIO PROCESSOR ---
+const checkIndonesiaRayaTime = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const targetHour = 10;    
+    const targetMinute = 0;  
+
+    if (hours === targetHour && minutes === targetMinute) {
+        if (!isIndonesiaRayaPlaying.value && !hasPlayedToday.value) {
+            if (player.value && typeof player.value.loadVideoById === 'function') {
+                isIndonesiaRayaPlaying.value = true;
+                hasPlayedToday.value = true; 
+                player.value.loadVideoById(indonesiaRayaId);
+                player.value.unMute();
+                player.value.setVolume(100);
+                player.value.playVideo();
+                
+                setTimeout(() => {
+                    if (isIndonesiaRayaPlaying.value) stopIndonesiaRayaAndPlayQueue();
+                }, 133000); 
+            }
+        }
+    }
+    if (minutes !== targetMinute) hasPlayedToday.value = false;
+};
+
 const playNextAnnouncement = () => {
-    if (!isAudioEnabled.value) return;
+    // Tambahkan proteksi: Jika user belum klik 'Mulai', jangan putar suara
+    if (!isAudioEnabled.value) {
+        console.warn("Audio belum diaktifkan oleh user (tombol Mulai belum diklik).");
+        return;
+    }
+
     if (pendingAnnouncements.value.length === 0) {
         isSpeaking.value = false;
         if (player.value?.setVolume) player.value.setVolume(100);
         return;
     }
+
     isSpeaking.value = true;
     if (player.value?.setVolume) player.value.setVolume(10); 
+    
     const queueData = pendingAnnouncements.value.shift();
     currentDisplayQueue.value = queueData.originalData;
-    callQueue(queueData.announcement, () => playNextAnnouncement());
+
+    // Panggil audio dengan penanganan error yang lebih halus
+    callQueue(queueData.announcement, () => {
+        playNextAnnouncement();
+    });
 };
 
 watch(() => props.queues, (newQueues) => {
-    if (!newQueues?.length) return;
+    if (!newQueues || newQueues.length === 0) return;
+
     newQueues.forEach(fullData => {
         const lastTime = processedState.value.get(fullData.id);
-        if (fullData.status === 'called' && (!lastTime || fullData.updated_at > lastTime)) {
+        
+        if ((!lastTime || fullData.updated_at > lastTime) && fullData.status === 'called') {
             processedState.value.set(fullData.id, fullData.updated_at);
-            const rawCode = fullData.ticket_code || 'A-000';
+            
+            const rawCode = fullData.ticket_code || fullData.number || '000'; 
+            const prefix = isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : ''; 
+            const numberOnly = rawCode.replace(/\D/g, ''); 
+            const cleanedNumber = parseInt(numberOnly, 10).toString();
+            
             pendingAnnouncements.value.push({
                 announcement: { 
-                    prefix: isNaN(rawCode.charAt(0)) ? rawCode.charAt(0) : '', 
-                    number: rawCode.replace(/\D/g, ''), 
-                    counter: fullData.counter?.name.replace(/\D/g, '') || '1' 
+                    prefix, 
+                    number: cleanedNumber, 
+                    counter: fullData.counter ? fullData.counter.name.replace(/\D/g, '') : '1' 
                 },
                 originalData: fullData
             });
+
             if (!isSpeaking.value) playNextAnnouncement();
         }
     });
@@ -137,12 +170,10 @@ watch(() => props.queues, (newQueues) => {
 
 const enableAudio = () => {
     isAudioEnabled.value = true;
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) { new AudioContext().resume(); }
     const unlock = new Audio();
-    unlock.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
     unlock.play().catch(() => {});
-    if (player.value?.unMute) {
+    
+    if (player.value && typeof player.value.unMute === 'function') {
         player.value.unMute(); 
         player.value.setVolume(100); 
         player.value.playVideo();
@@ -150,47 +181,67 @@ const enableAudio = () => {
     document.documentElement.requestFullscreen().catch(() => {});
 };
 
-// --- 4. LIFECYCLE ---
+const nextQueues = computed(() => (props.queues || []).filter(q => q.status === 'waiting').slice(0, 3));
+
 onMounted(() => {
     preloadCommonAudio().catch(() => {});
     loadYoutubeAPI();
-    
-    // Cek Waktu Indonesia Raya
-    timeInterval = setInterval(() => {
-        const now = new Date();
-        if (now.getHours() === 10 && now.getMinutes() === 0 && !hasPlayedToday.value) {
-            isIndonesiaRayaPlaying.value = true;
-            hasPlayedToday.value = true;
-            player.value?.loadVideoById(indonesiaRayaId);
-        }
-        if (now.getMinutes() !== 0) hasPlayedToday.value = false;
-    }, 1000);
+    timeInterval = setInterval(checkIndonesiaRayaTime, 1000); 
 
-    // SINKRONISASI TAB (Mencegah video berhenti saat tab dibuka kembali)
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            syncDisplayData("visibility");
-            player.value?.playVideo();
-        }
-    });
-
-    // SUPABASE REALTIME (DENGAN DEBOUNCE & COOL-DOWN)
+    // --- REVISI FINAL: SUPABASE REALTIME DENGAN PENGAMAN ---
     realtimeChannel = supabase
         .channel('public:queues_display_stable')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, (payload) => {
-            console.log("SINYAL REALTIME:", payload.eventType);
-            
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'queues' 
+        }, (payload) => {
+            // Indikator sinyal di Console
+            console.log("SINYAL DITERIMA!", payload.eventType);
+
+            // 1. Hapus rencana refresh sebelumnya (Peredam Kejut)
             if (debounceTimer) clearTimeout(debounceTimer);
+
+            // 2. Buat rencana refresh baru setelah jeda 0.8 detik
             debounceTimer = setTimeout(() => {
-                syncDisplayData("realtime");
-            }, 1500); // Jeda 1.5 detik agar database stabil dulu
+                
+                const performUpdate = () => {
+                    // 3. Jika sedang ada proses tarik data, jangan dibatalkan tapi antre
+                    if (isBackgroundRefreshing.value) {
+                        console.log("Sabar, lagi narik data...");
+                        setTimeout(performUpdate, 500);
+                        return;
+                    }
+
+                    console.log("Memperbarui tampilan TV secara realtime...");
+                    isBackgroundRefreshing.value = true;
+                    
+                    router.reload({
+                        only: ['queues'],
+                        preserveScroll: true,
+                        // --- KUNCI: TRUE agar status 'Mulai' tidak hilang/reset ---
+                        preserveState: true, 
+                        onFinish: () => { 
+                            isBackgroundRefreshing.value = false; 
+                            console.log("Update TV Selesai!");
+                        }
+                    });
+                };
+
+                performUpdate();
+                
+            }, 800); 
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log("STATUS KONEKSI SUPABASE:", status);
+        });
 });
 
 onUnmounted(() => {
     clearInterval(timeInterval);
-    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+    }
 });
 </script>
 
