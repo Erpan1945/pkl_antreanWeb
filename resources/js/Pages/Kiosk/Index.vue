@@ -41,8 +41,8 @@ const submitTicket = async () => {
             setTimeout(() => {
                 ticketData.value = null;
                 printing.value = false;
-            }, 20000); 
-        }, 4000);
+            }, 25000); 
+        }, 5000);
 
     } catch (error) {
         console.error(error);
@@ -97,16 +97,16 @@ const submitTicket = async () => {
             <p class="text-yellow-400 mt-4 text-xl font-bold">Harap tunggu sebentar</p>
         </div>
 
-        <div v-if="ticketData" class="print-only hidden">
-            <div class="ticket-container">
+        <div v-show="ticketData" class="print-only">
+            <div class="ticket-container" v-if="ticketData">
                 <img src="/images/logo-asabri-dark.png" alt="Logo" class="ticket-logo" /> 
                 <h2 class="instansi">PT ASABRI (Persero)</h2>
                 <h3 class="cabang">KC MALANG</h3>
                 <p class="date">{{ ticketData.date }}</p>
-                <hr class="dashed" />
-                <p class="label">NOMOR ANTRIAN</p>
-                <h1 class="big-number">{{ ticketData.ticket.ticket_code }}</h1>
-                <hr class="dashed" />
+                <div class="dashed-line"></div>
+                <p class="label">NOMOR ANTREAN</p>
+                <h1 class="big-number">{{ ticketData.ticket?.ticket_code }}</h1>
+                <div class="dashed-line"></div>
                 <p class="footer-note">Mohon menunggu dengan tertib.</p>
                 <p class="footer-note">Terima Kasih.</p>
             </div>
@@ -116,89 +116,73 @@ const submitTicket = async () => {
 </template>
 
 <style>
-/* CSS KHUSUS PRINT (WAJIB SEPERTI INI) */
+/* CSS UNTUK TAMPILAN MONITOR (BIASA) */
+@media screen {
+    .print-only {
+        display: none !important;
+    }
+}
+
+/* CSS KHUSUS PRINT (OPTIMASI PC HDD LAMA) */
 @media print {
-    /* 1. RESET HALAMAN GLOBAL */
+    /* 1. Sembunyikan container utama Laravel/Inertia agar PC tidak berat merender */
+    #app, .no-print {
+        display: none !important;
+    }
+
+    /* 2. Reset Halaman */
     html, body {
-        width: 58mm; /* Ubah ke lebar thermal */
+        width: 58mm;
         margin: 0 !important;
         padding: 0 !important;
+        background: #fff;
     }
 
-    /* 2. SEMBUNYIKAN SEMUA KONTEN WEBSITE */
-    body * {
-        visibility: hidden;
-    }
-
-    /* 3. PAKSA TIKET TAMPIL & LEPAS DARI STRUKTUR HALAMAN */
+    /* 3. Tampilkan Tiket di posisi paling atas */
     .print-only {
-        position: fixed; 
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: auto;
+        display: block !important;
         visibility: visible !important;
-        z-index: 9999; 
-        background: white; 
-        display: flex !important;
-        justify-content: center;
-        align-items: flex-start;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 58mm;
     }
 
-    /* Pastikan isi tiket juga terlihat */
+    /* 4. PAKSA SEMUA TEKS JADI HITAM PEKAT */
+    /* Ini kunci agar printer thermal mau membakar kertasnya */
     .print-only * {
         visibility: visible !important;
+        color: #000000 !important;
+        font-family: 'Arial', sans-serif !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 
-   /* 4. SETTING KERTAS (STRUK THERMAL 58mm) */
     .ticket-container {
-        width: 100%;
-        max-width: 58mm;
-        margin: 0;
-        padding: 2mm; /* Kecilkan padding agar tidak memakan banyak kertas */
+        width: 58mm;
         text-align: center;
-        font-family: 'Courier New', Courier, monospace; 
-        color: black;
+        padding: 2mm;
     }
 
     .ticket-logo {
-        /* 1. Gunakan lebar pasti agar tidak kekecilan (Sekitar 30-40mm) */
-        width: 35mm; 
+        width: 35mm;
         height: auto;
         margin: 0 auto 2mm;
         display: block !important;
-        
-        /* 2. PAKSA browser menampilkan grafis (Kunci Utama) */
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        /* 3. Pastikan visibility benar-benar tembus */
-        visibility: visible !important;
-    }       
-
-    /* Styling Teks Struk */
-    .instansi { font-size: 12pt; font-weight: bold; margin-bottom: 2mm; text-transform: uppercase; margin-top: 1mm;}
-    .date { font-size: 8pt; margin-bottom: 4mm; }
-    .dashed { border-top: 1px dashed black !important; margin: 3mm 0; border-bottom: none; display: block; }
-    
-    .label { font-size: 10pt; margin-top: 2mm; }
-    .big-number { font-size: 40pt; font-weight: 900; margin: 0; line-height: 1; }
-    .service-name { font-size: 12pt; font-weight: bold; margin-bottom: 4mm; }
-
-    .guest-info { 
-        text-align: left; 
-        font-size: 9pt; 
-        margin: 4mm 0;
-        width: 100%;
-        font-weight: bold;
     }
-    .guest-info p { margin: 1mm 0; }
 
-    .footer-note { font-size: 8pt; margin-top: 4mm; font-style: italic; }
+    /* Ukuran teks yang pas untuk kertas 58mm */
+    .instansi { font-size: 11pt; font-weight: bold; margin: 0; }
+    .cabang { font-size: 10pt; font-weight: bold; margin: 0; }
+    .date { font-size: 8pt; margin: 2mm 0; }
+    .dashed-line { border-top: 1px dashed #000 !important; margin: 3mm 0; width: 100%; }
+    .label { font-size: 10pt; font-weight: bold; }
+    .big-number { font-size: 42pt; font-weight: 900; margin: 2mm 0; line-height: 1; }
+    .footer-note { font-size: 8pt; font-style: italic; margin-top: 2mm; }
 
-    /* 5. HAPUS MARGIN BROWSER & ATUR UKURAN KERTAS */
     @page {
         size: 58mm auto;
-        margin: 0mm; 
+        margin: 0;
     }
 }
 </style>
