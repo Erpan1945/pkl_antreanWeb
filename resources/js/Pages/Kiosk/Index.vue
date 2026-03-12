@@ -41,8 +41,8 @@ const submitTicket = async () => {
             setTimeout(() => {
                 ticketData.value = null;
                 printing.value = false;
-            }, 15000); 
-        }, 3000);
+            }, 20000); 
+        }, 4000);
 
     } catch (error) {
         console.error(error);
