@@ -112,6 +112,9 @@ return [
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'require'),
             'prepared_statements' => false,
+            'options' => [
+                 \PDO::ATTR_EMULATE_PREPARES => true, // Baris 2 (Paksaan Tambahan)
+    ],
         ],
 
         'sqlsrv' => [
