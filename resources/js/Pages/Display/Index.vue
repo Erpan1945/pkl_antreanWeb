@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref,shallowRef, onMounted, onUnmounted, computed, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { callQueue, preloadCommonAudio } from '@/utils/queueAudio';
 import DisplayLayout from '@/Layouts/DisplayLayout.vue'; 
@@ -14,7 +14,7 @@ const props = defineProps({
 });
 
 // --- 1. CONFIG YOUTUBE PLAYER ---
-const player = ref(null);
+const player = shallowRef(null);
 const playlistVideos = ["vHZhFmkINI8", "H7fAevGRHXQ", "7EJQy7gSk1c", "1q9ijwlvMTQ"];
 const videoId = ref(playlistVideos[0]);
 const indonesiaRayaId = "HKrhbLJa1JA"; 
